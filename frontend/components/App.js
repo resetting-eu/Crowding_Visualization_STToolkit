@@ -10,6 +10,13 @@ import {useControl} from 'react-map-gl';
 import Slider from '@mui/material/Slider'
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import CircularProgress from '@mui/material/CircularProgress';
+import { Tooltip as MUITooltip } from '@mui/material';
+import HelpIcon from '@mui/icons-material/Help';
+import Divider from '@mui/material/Divider';
 import { TextField } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -82,6 +89,33 @@ const style = {
 
 const emptyGeoJson = {type: "FeatureCollection", features: []};
 
+  const measurements = [
+    {name: "C1", description: "Number of distinct devices in square"},
+    {name: "C2", description: "Number of distinct roaming devices in square"},
+    {name: "X3", description: "Placeholder"},
+    {name: "X4", description: "Placeholder"},
+    {name: "X5", description: "Placeholder"},
+    {name: "X6", description: "Placeholder"},
+    {name: "X7", description: "Placeholder"},
+    {name: "X8", description: "Placeholder"},
+    {name: "X9", description: "Placeholder"},
+    {name: "X10", description: "Placeholder"},
+    {name: "X11", description: "Placeholder"},
+    {name: "X12", description: "Placeholder"},
+    {name: "X13", description: "Placeholder"},
+    {name: "X14", description: "Placeholder"},
+    {name: "X15", description: "Placeholder"},
+    {name: "X16", description: "Placeholder"},
+    {name: "X17", description: "Placeholder"},
+    {name: "X18", description: "Placeholder"},
+    {name: "X19", description: "Placeholder"},
+    {name: "X20", description: "Placeholder"},
+    {name: "X21", description: "Placeholder"},
+    {name: "X22", description: "Placeholder"},
+    {name: "X23", description: "Placeholder"},
+    {name: "X24", description: "Placeholder"}
+  ];
+
 function DateTimeWidget(props) {
   const [dateObj, setDateObj] = useState(dayjs(props.value, "YYYY-MM-DDTHH:mm:ss"));
   return (
@@ -115,7 +149,9 @@ function App() {
 
   const [start, setStart] = useState("2022-08-01T00:00:00Z");
   const [end, setEnd] = useState("2022-08-02T00:00:00Z");
-  const [every, setEvery] = useState("1h");
+  const [everyNumber, setEveryNumber] = useState("1");
+  const [everyUnit, setEveryUnit] = useState("h");
+  const [loading, setLoading] = useState(false);
 
   const [selectedTimestamp, setSelectedTimestamp] = useState(0);
 
@@ -130,10 +166,11 @@ function App() {
   }
 
   function load() {
-    const url = "http://localhost:5000/data_range?start=" + start + "&end=" + end + "&every=" + every;
+    setLoading(true);
+    const url = "http://localhost:5000/data_range?start=" + start + "&end=" + end + "&every=" + everyNumber + everyUnit;
     fetch(url)
       .then(r => r.json())
-      .then(data => setRawData(data))
+      .then(data => { setLoading(false); setRawData(data); });
     console.log(url);
   }
 
@@ -299,31 +336,74 @@ function App() {
   useEffect(() => setClearSelectedSquaresDisabled(selectedSquares.length === 0), [selectedSquares]);
   useEffect(() => setCumValues(transformCumValuesToList(rawData)), [selectedSquares]);
 
+  const [pane, setPane] = useState("loader");
+
+  const [measurement, setMeasurement] = useState(measurements[0]);
+
   return (
     <div>
-      <div style={{position: "absolute", top: "10px", left: "10%", width: "80%", margin: "auto"}}>
-        <div style={{float: "left", textAlign: "left", margin: "auto", verticalAlign: "middle"}}>
-          <DateTimeWidget label="Start" value={start} onChange={setStart} />
-          <DateTimeWidget label="End" value={end} onChange={setEnd} />
-          <TextField label="Interval" value={every} onChange={e => setEvery(e.target.value)} sx={{width: 100}} />
-          <span style={{position: "relative", top:"10px"}}><Button variant="outlined" onClick={load}>Load</Button></span>
-        </div>
-        <div style={{float: "right", textAlign: "right", margin: "auto"}}>
-          <span style={{position: "relative", top:"10px"}}>
+      <div style={{position: "absolute", top: "25px", left: "10%", right: "10%", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "N/A"} />
+      </div>
+      <div style={{position: "absolute", top: "85px", left: "calc(10% + 25px)", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+        <ToggleButtonGroup exclusive value={pane} onChange={(_, selected) => selected === pane ? setPane("") : setPane(selected)} >
+          <ToggleButton value="loader" sx={{borderRadius: 0}}>Loader</ToggleButton>
+          <ToggleButton value="toolbar" sx={{borderRadius: 0}}>Toolbar</ToggleButton>
+        </ToggleButtonGroup>
+      </div>
+      { pane === "loader" && 
+        <div style={{position: "absolute", top: "133px", left: "calc(10% + 25px)", zIndex: 100, padding: "15px 20px", backgroundColor: "rgba(206, 206, 206, 1.0)"}}>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2}>
+              <DateTimeWidget label="Start" value={start} onChange={setStart} />
+              <DateTimeWidget label="End" value={end} onChange={setEnd} />
+            </Stack>
+            <Stack direction="row" spacing={2} sx={{textAlign: "center"}} maxWidth={true} float="left">
+              <TextField type="number" label="Interval" sx={{width: 75}} value={everyNumber} onChange={e => setEveryNumber(e.target.value)} />
+              <TextField select value={everyUnit} label="Unit" onChange={change(setEveryUnit)}>
+                <MenuItem value="m" key="m">Minute</MenuItem>
+                <MenuItem value="h" key="h">Hour</MenuItem>
+                <MenuItem value="d" key="d">Day</MenuItem>
+                <MenuItem value="w" key="w">Week</MenuItem>
+                <MenuItem value="mo" key="mo">Month</MenuItem>
+              </TextField>
+              <span style={{position: "relative", top:"15px"}}>
+                <MUITooltip title="Interval defines the time window that will be used to aggregate and average the data">
+                  <HelpIcon />
+                </MUITooltip>
+              </span>
+              <span style={{width: "260px", textAlign: "right"}}>
+                <TextField select label="Measurement" sx={{width: 100}} value={measurement} onChange={change(setMeasurement)} SelectProps={{renderValue: (m) => m.name}}>
+                  {measurements.map(m => (
+                    <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
+                  ))}
+                </TextField>
+              </span>
+            </Stack>
+          </Stack>
+          <div>
+            <span style={{display: "inline-block", width: "275px", textAlign: "right"}}>
+              <Button variant="contained" onClick={load}>Load</Button>
+            </span>
+            <span style={{position: "relative", top: "18px", marginLeft: "15px", overflow: "hidden"}}>
+              { loading && <CircularProgress/> }
+            </span>
+          </div>
+        </div>}
+      { pane === "toolbar" && 
+        <div style={{position: "absolute", top: "133px", left: "calc(10% + 107px)", zIndex: 100, padding: "15px 20px", backgroundColor: "rgba(206, 206, 206, 1.0)"}}>
+          <Stack direction="row" spacing={2}>
+            <TextField select value={visualization} label="Visualization" onChange={change(setVisualization)}>
+              <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
+              <MenuItem value="density" key="density">Density of devices</MenuItem>
+              <MenuItem value="both" key="both">Number + density of devices</MenuItem>
+            </TextField>
+            <Divider orientation="vertical" flexItem />
             <Button variant="outlined" onClick={() => setDrawing(true)} disabled={drawing}>Draw</Button>
             <Button variant="outlined" onClick={() => setSelectedSquares([])} disabled={clearSelectedSquaresDisabled}>Clear</Button>
-          </span>
-          <TextField select value={visualization} label="Visualization" onChange={change(setVisualization)}>
-            <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
-            <MenuItem value="density" key="density">Density of devices</MenuItem>
-            <MenuItem value="both" key="both">Number + density of devices</MenuItem>
-          </TextField>
-        </div>
-      </div>
-      <div style={{position: "absolute", top: "65px", left: "10%", width: "80%"}}>
-        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "N/A"}/>
-      </div>
-      <div style={{position: "absolute", top: "100px", bottom: "0px", width: "100%"}}>
+          </Stack>
+        </div>}
+      <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
         <Map mapLib={maplibregl} mapStyle={style} initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
           onClick={(e) => !drawing && toggleSquare(e.lngLat)}
           onDblClick={(e) => e.preventDefault()}>
@@ -349,7 +429,7 @@ function App() {
               getFillColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 139, 100]
             })]}
             getTooltip={(o) => o.picked && tooltip(o.index)} />
-          <NavigationControl />
+          {/* <NavigationControl /> */}
           {drawControlOn && 
             <DrawControl onFinish={drawingFinished} />}
         </Map>

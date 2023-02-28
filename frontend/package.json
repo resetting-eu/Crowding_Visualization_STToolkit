@@ -12,6 +12,7 @@
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
     "@mapbox/mapbox-gl-draw": "^1.4.0",
+    "@mui/icons-material": "^5.11.9",
     "@mui/material": "^5.11.8",
     "@mui/x-date-pickers": "^5.0.17",
     "@next/font": "13.1.6",
