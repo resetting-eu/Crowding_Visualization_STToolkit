@@ -89,32 +89,28 @@ const style = {
 
 const emptyGeoJson = {type: "FeatureCollection", features: []};
 
-  const measurements = [
-    {name: "C1", description: "Number of distinct devices in square"},
-    {name: "C2", description: "Number of distinct roaming devices in square"},
-    {name: "X3", description: "Placeholder"},
-    {name: "X4", description: "Placeholder"},
-    {name: "X5", description: "Placeholder"},
-    {name: "X6", description: "Placeholder"},
-    {name: "X7", description: "Placeholder"},
-    {name: "X8", description: "Placeholder"},
-    {name: "X9", description: "Placeholder"},
-    {name: "X10", description: "Placeholder"},
-    {name: "X11", description: "Placeholder"},
-    {name: "X12", description: "Placeholder"},
-    {name: "X13", description: "Placeholder"},
-    {name: "X14", description: "Placeholder"},
-    {name: "X15", description: "Placeholder"},
-    {name: "X16", description: "Placeholder"},
-    {name: "X17", description: "Placeholder"},
-    {name: "X18", description: "Placeholder"},
-    {name: "X19", description: "Placeholder"},
-    {name: "X20", description: "Placeholder"},
-    {name: "X21", description: "Placeholder"},
-    {name: "X22", description: "Placeholder"},
-    {name: "X23", description: "Placeholder"},
-    {name: "X24", description: "Placeholder"}
-  ];
+const measurements = [
+  {name: "C1", description: "Number of distinct devices in square"},
+  {name: "C2", description: "Number of distinct roaming devices in square"},
+  {name: "C3", description: "Placeholder"},
+  {name: "C4", description: "Placeholder"},
+  {name: "C5", description: "Placeholder"},
+  {name: "C6", description: "Placeholder"},
+  {name: "C7", description: "Placeholder"},
+  {name: "C8", description: "Placeholder"},
+  {name: "C9", description: "Placeholder"},
+  {name: "C10", description: "Placeholder"},
+  {name: "C11", description: "Placeholder"},
+  {name: "E1", description: "Placeholder"},
+  {name: "E2", description: "Placeholder"},
+  {name: "E3", description: "Placeholder"},
+  {name: "E4", description: "Placeholder"},
+  {name: "E5", description: "Placeholder"},
+  {name: "E7", description: "Placeholder"},
+  {name: "E8", description: "Placeholder"},
+  {name: "E9", description: "Placeholder"},
+  {name: "E10", description: "Placeholder"}
+];
 
 function DateTimeWidget(props) {
   const [dateObj, setDateObj] = useState(dayjs(props.value, "YYYY-MM-DDTHH:mm:ss"));
@@ -167,7 +163,8 @@ function App() {
 
   function load() {
     setLoading(true);
-    const url = "http://localhost:5000/data_range?start=" + start + "&end=" + end + "&every=" + everyNumber + everyUnit;
+    const url = "http://localhost:5000/data_range?start=" + start + "&end=" + end
+      + "&every=" + everyNumber + everyUnit + "&measurement=" + measurement.name;
     fetch(url)
       .then(r => r.json())
       .then(data => { setLoading(false); setRawData(data); });
