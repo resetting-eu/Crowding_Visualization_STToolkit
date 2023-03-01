@@ -357,7 +357,7 @@ function App() {
             </Stack>
             <Stack direction="row" spacing={2} sx={{textAlign: "center"}} maxWidth={true} float="left">
               <TextField type="number" label="Interval" sx={{width: 75}} value={everyNumber} onChange={e => setEveryNumber(e.target.value)} />
-              <TextField select value={everyUnit} label="Unit" onChange={change(setEveryUnit)}>
+              <TextField select value={everyUnit} label="Unit" onChange={change(setEveryUnit)} sx={{width: 95}}>
                 <MenuItem value="m" key="m">Minute</MenuItem>
                 <MenuItem value="h" key="h">Hour</MenuItem>
                 <MenuItem value="d" key="d">Day</MenuItem>
@@ -369,7 +369,7 @@ function App() {
                   <HelpIcon />
                 </MUITooltip>
               </span>
-              <span style={{width: "260px", textAlign: "right"}}>
+              <span style={{width: "247px", textAlign: "right"}}>
                 <TextField select label="Measurement" sx={{width: 100}} value={measurement} onChange={change(setMeasurement)} SelectProps={{renderValue: (m) => m.name}}>
                   {measurements.map(m => (
                     <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
