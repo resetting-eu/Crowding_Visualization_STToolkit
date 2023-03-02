@@ -24,6 +24,7 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import localizedFormat from "dayjs/plugin/localizedFormat";
 
 import { Chart as ChartJS, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip } from "chart.js";
 import { Line } from "react-chartjs-2";
@@ -34,6 +35,7 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
 dayjs.extend(customParseFormat);
+dayjs.extend(localizedFormat);
 
 ChartJS.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip);
 
@@ -278,7 +280,7 @@ function App() {
 
   function formatTimestamp(timestamp) {
     const dateObj = dayjs(timestamp, "YYYY-MM-DDTHH:mm:ss");
-    return dateObj.format("DD/MM/YYYY hh:mm A"); // TODO - the format should be determined by the user's locale
+    return dateObj.format("L LT");
   }
 
   const [drawing, setDrawing] = useState(false);
@@ -434,7 +436,7 @@ function App() {
       {visualization == "absolute" &&
         <div style={{position: "absolute", bottom: "0px", left: "0px", height: "30%", width: "30%", zIndex: 100, backgroundColor: "rgba(255, 255, 255, 1.0)"}}>
           <Line
-            data={{labels: rawData.timestamps ? rawData.timestamps : [], datasets: [{data: cumValues, borderColor: 'rgb(60, 60, 60)', pointBackgroundColor: (ctx) => ctx.dataIndex == selectedTimestamp ? "rgb(52, 213, 255)" : "rgb(60, 60, 60)"}]}}
+            data={{labels: rawData.timestamps ? rawData.timestamps.map(formatTimestamp) : [], datasets: [{data: cumValues, borderColor: 'rgb(60, 60, 60)', pointBackgroundColor: (ctx) => ctx.dataIndex == selectedTimestamp ? "rgb(52, 213, 255)" : "rgb(60, 60, 60)"}]}}
             options={{scales: {x: {display: false}}}} />
         </div>}
     </div>
