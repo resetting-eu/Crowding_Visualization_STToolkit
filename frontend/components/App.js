@@ -2,7 +2,7 @@ import Map, {NavigationControl} from 'react-map-gl';
 import maplibregl from 'maplibre-gl';
 import {GeoJsonLayer, ColumnLayer} from '@deck.gl/layers';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createElement } from 'react';
 
 import {MapboxOverlay} from '@deck.gl/mapbox/typed';
 import {useControl} from 'react-map-gl';
@@ -16,7 +16,13 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import { Tooltip as MUITooltip } from '@mui/material';
 import HelpIcon from '@mui/icons-material/Help';
-import Divider from '@mui/material/Divider';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PauseIcon from '@mui/icons-material/Pause';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import IconButton from '@mui/material/IconButton';
 import { TextField } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -130,6 +136,23 @@ function DateTimeWidget(props) {
   );
 }
 
+function IconButtonWithTooltip(props) {
+  const tooltip = props.tooltip;
+  const iconComponent = props.iconComponent;
+
+  const buttonProps = {...props};
+  delete buttonProps.tooltip;
+  delete buttonProps.iconComponent;
+
+  return (
+  <IconButton {...buttonProps}>
+    <MUITooltip title={tooltip}>
+      {createElement(iconComponent)}
+    </MUITooltip>
+  </IconButton>
+  );
+}
+
 function App() {
   const [grid, setGrid] = useState(emptyGeoJson);
   const [rawData, setRawData] = useState([]);
@@ -163,13 +186,29 @@ function App() {
     return event => setter(event.target.value);
   }
 
+  const statuses = {
+    loadingHistory: {caption: "Loading historical data...", buttonText: "Cancel"},
+    viewingHistory: {caption: "Viewing historical data", buttonText: "Live"},
+    loadingLive: {caption: "Loading live data...", buttonText: "Cancel"},
+    viewingLive: {caption: "Viewing live data", buttonText: "Pause"},
+    viewingLivePaused: {caption: "Live update paused", buttonText: "Live"},
+    noData: {caption: "No data loaded"}
+  }
+
+  const [status, setStatus] = useState(statuses.noData);
+
   function load() {
     setLoading(true);
+    setStatus(statuses.loadingHistory);
     const url = "http://localhost:5000/data_range?start=" + start + "&end=" + end
       + "&every=" + everyNumber + everyUnit + "&measurement=" + measurement.name;
     fetch(url)
       .then(r => r.json())
-      .then(data => { setLoading(false); setRawData(data); });
+      .then(data => {
+        setLoading(false);
+        setStatus(statuses.viewingHistory);
+        setRawData(data);
+      });
     console.log(url);
   }
 
@@ -331,27 +370,36 @@ function App() {
     }
   }
 
-  const [clearSelectedSquaresDisabled, setClearSelectedSquaresDisabled] = useState(true);
-  useEffect(() => setClearSelectedSquaresDisabled(selectedSquares.length === 0), [selectedSquares]);
   useEffect(() => setCumValues(transformCumValuesToList(rawData)), [selectedSquares]);
 
-  const [pane, setPane] = useState("loader");
+  const [pane, setPane] = useState("");
 
   const [measurement, setMeasurement] = useState(measurements[0]);
 
   return (
     <div>
       <div style={{position: "absolute", top: "25px", left: "10%", right: "10%", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "N/A"} />
+        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} />
+        <Stack direction="row" spacing={2}>
+          <ToggleButtonGroup exclusive value={pane} onChange={(_, selected) => selected === pane ? setPane("") : setPane(selected)} >
+            <ToggleButton value="history">History</ToggleButton>
+            <ToggleButton value="points">Find points</ToggleButton>
+          </ToggleButtonGroup>
+          <TextField select value={visualization} sx={{width: 253}} label="Visualization" onChange={change(setVisualization)}>
+            <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
+            <MenuItem value="density" key="density">Density of devices</MenuItem>
+            <MenuItem value="both" key="both">Number + density of devices</MenuItem>
+          </TextField>
+          <IconButtonWithTooltip tooltip="Play animation" iconComponent={PlayArrowIcon} />
+          <IconButtonWithTooltip tooltip="Go to previous critical point" iconComponent={SkipPreviousIcon} />
+          <IconButtonWithTooltip tooltip="Go to next critical point" iconComponent={SkipNextIcon} />
+          <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
+          <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
+          <span style={{position: "relative", top: "10px"}}>{status.caption} {status.buttonText && <Button>{status.buttonText}</Button>}</span>
+        </Stack>
       </div>
-      <div style={{position: "absolute", top: "85px", left: "calc(10% + 25px)", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-        <ToggleButtonGroup exclusive value={pane} onChange={(_, selected) => selected === pane ? setPane("") : setPane(selected)} >
-          <ToggleButton value="loader" sx={{borderRadius: 0}}>Loader</ToggleButton>
-          <ToggleButton value="toolbar" sx={{borderRadius: 0}}>Toolbar</ToggleButton>
-        </ToggleButtonGroup>
-      </div>
-      { pane === "loader" && 
-        <div style={{position: "absolute", top: "133px", left: "calc(10% + 25px)", zIndex: 100, padding: "15px 20px", backgroundColor: "rgba(206, 206, 206, 1.0)"}}>
+      { pane === "history" &&
+        <div style={{position: "absolute", top: "140px", left: "10%", zIndex: 100, padding: "15px 20px",  borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
           <Stack spacing={2}>
             <Stack direction="row" spacing={2}>
               <DateTimeWidget label="Start" value={start} onChange={setStart} />
@@ -389,18 +437,9 @@ function App() {
             </span>
           </div>
         </div>}
-      { pane === "toolbar" && 
-        <div style={{position: "absolute", top: "133px", left: "calc(10% + 107px)", zIndex: 100, padding: "15px 20px", backgroundColor: "rgba(206, 206, 206, 1.0)"}}>
-          <Stack direction="row" spacing={2}>
-            <TextField select value={visualization} label="Visualization" onChange={change(setVisualization)}>
-              <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
-              <MenuItem value="density" key="density">Density of devices</MenuItem>
-              <MenuItem value="both" key="both">Number + density of devices</MenuItem>
-            </TextField>
-            <Divider orientation="vertical" flexItem />
-            <Button variant="outlined" onClick={() => setDrawing(true)} disabled={drawing}>Draw</Button>
-            <Button variant="outlined" onClick={() => setSelectedSquares([])} disabled={clearSelectedSquaresDisabled}>Clear</Button>
-          </Stack>
+      { pane === "points" && 
+        <div style={{position: "absolute", top: "140px", left: "calc(10% + 107px)", zIndex: 100, padding: "15px 20px", borderRadius: 25, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+          <p>Not implemented yet</p>
         </div>}
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
         <Map mapLib={maplibregl} mapStyle={style} initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
