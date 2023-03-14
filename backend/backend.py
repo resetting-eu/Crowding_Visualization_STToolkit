@@ -30,6 +30,11 @@ def grid():
             del f["_id"]
         return jsonify(features)
 
+@app.route("/grid_local")
+def grid_local():
+    with open("grid_usable_areas_2.json") as f:
+        return Response(f.read(), mimetype="application/json")
+
 debug = True
 
 query_range = 'from(bucket: "VodafoneLxData")\
@@ -65,9 +70,9 @@ def get_values_range(start, end, every, measurement, aggregate=True):
 
 ## streaming
 
-current_dt = datetime.datetime.fromisoformat("2022-05-01T00:00:00+00:00")
+current_dt = datetime.datetime.fromisoformat("2022-08-01T00:00:00+00:00")
 
-INITIAL_BUFFER_TIMEDELTA = datetime.timedelta(hours=24)
+INITIAL_BUFFER_TIMEDELTA = datetime.timedelta(hours=1)
 INCREMENT = datetime.timedelta(minutes=5)
 
 def increment_current_dt():
@@ -81,8 +86,8 @@ scheduler.start()
 @app.route("/mock_stream")
 def mock_stream():
     last_timestamp = request.args.get("last_timestamp")
-    last_timestamp = last_timestamp.replace("Z", "+00:00") # workaround because of python datetime limitation
     if last_timestamp:
+        last_timestamp = last_timestamp.replace("Z", "+00:00") # workaround because of python datetime limitation
         last_dt = datetime.datetime.fromisoformat(last_timestamp)
         if last_dt < current_dt:
             start = last_dt + INCREMENT

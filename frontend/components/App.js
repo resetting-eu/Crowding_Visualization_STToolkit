@@ -2,7 +2,7 @@ import Map, {NavigationControl} from 'react-map-gl';
 import maplibregl from 'maplibre-gl';
 import {GeoJsonLayer, ColumnLayer} from '@deck.gl/layers';
 
-import React, { useState, useEffect, createElement } from 'react';
+import React, { useState, useEffect, createElement, useRef } from 'react';
 
 import {MapboxOverlay} from '@deck.gl/mapbox/typed';
 import {useControl} from 'react-map-gl';
@@ -39,6 +39,8 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
+
+import { concatDataIndexes } from './Utils';
 
 dayjs.extend(customParseFormat);
 dayjs.extend(localizedFormat);
@@ -95,7 +97,7 @@ const style = {
   ]
 };
 
-const emptyGeoJson = {type: "FeatureCollection", features: []};
+const emptyGeoJson = [];
 
 const measurements = [
   {name: "C1", description: "Number of distinct devices in square"},
@@ -160,12 +162,15 @@ function App() {
   const [cumValues, setCumValues] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:5000/grid")
+    // fetch("http://localhost:5000/grid") // load grid
+    fetch("http://localhost:5000/grid_local")
       .then(r => r.json())
       .then(data => {
         data.sort((a, b) => a.properties.id - b.properties.id);
         setGrid(data);
       });
+
+    loadLive();
     }, []);
 
   const [start, setStart] = useState("2022-08-01T00:00:00Z");
@@ -179,6 +184,9 @@ function App() {
   const [visualization, setVisualization] = useState("absolute");
 
   useEffect(() => {
+    if(!rawData.measurements)
+      return;
+
     setValues(transformValuesToList(rawData));
   }, [selectedTimestamp]);
 
@@ -186,44 +194,176 @@ function App() {
     return event => setter(event.target.value);
   }
 
+  // statuses captions must be unique
   const statuses = {
     loadingHistory: {caption: "Loading historical data...", buttonText: "Cancel"},
-    viewingHistory: {caption: "Viewing historical data", buttonText: "Live"},
+    viewingHistory: {caption: "Viewing historical data", buttonText: "Live", buttonOnClick: loadLive},
     loadingLive: {caption: "Loading live data...", buttonText: "Cancel"},
-    viewingLive: {caption: "Viewing live data", buttonText: "Pause"},
-    viewingLivePaused: {caption: "Live update paused", buttonText: "Live"},
+    viewingLive: {caption: "Viewing live data", buttonText: "Untrack", buttonOnClick: livePause},
+    viewingLiveNotTracking: {caption: "Viewing live data (no track)", buttonText: "Track", buttonOnClick: liveTrack},
+    viewingLivePaused: {caption: "Viewing live data (paused)", buttonText: "Live", buttonOnClick: loadLive},
     noData: {caption: "No data loaded"}
   }
 
+  function livePause() {
+    changeStatus(statuses.viewingLiveNotTracking);
+  }
+
+  function liveTrack() {
+    changeStatus(statuses.viewingLive);
+  }
+
   const [status, setStatus] = useState(statuses.noData);
+  const statusRef = useRef(statuses.noData);
+  const previousStatusRef = useRef(statuses.noData);
+
+  function changeStatus(s) {
+    previousStatusRef.current = statusRef.current;
+    setStatus(s);
+    statusRef.current = s;
+  }
+
+  // assumption: statuses captions are unique
+  function statusEquals(s1, s2) {
+    return s1.caption === s2.caption;
+  }
+
+  function currentStatusIs(s) {
+    return statusEquals(s, statusRef.current);
+  }
+
+  function previousStatusIs(s) {
+    return statusEquals(s, previousStatusRef.current);
+  }
 
   function load() {
     setLoading(true);
-    setStatus(statuses.loadingHistory);
+    changeStatus(statuses.loadingHistory);
     const url = "http://localhost:5000/data_range?start=" + start + "&end=" + end
       + "&every=" + everyNumber + everyUnit + "&measurement=" + measurement.name;
     fetch(url)
       .then(r => r.json())
       .then(data => {
         setLoading(false);
-        setStatus(statuses.viewingHistory);
+        changeStatus(statuses.viewingHistory);
         setRawData(data);
       });
-    console.log(url);
+  }
+
+  function loadLive() {
+    changeStatus(statuses.loadingLive);
+    const url = "http://localhost:5000/mock_stream";
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        setSelectedTimestamp(data.timestamps.length - 1);
+        changeStatus(statuses.viewingLive);
+        setRawData(data);
+      });
   }
 
   useEffect(() => {
+    if(currentStatusIs(statuses.viewingLive) && selectedTimestamp !== rawData.timestamps.length - 1)
+      changeStatus(statuses.viewingLiveNotTracking);
+  }, [selectedTimestamp]);
+
+
+  const lastTimestamp = useRef(null);
+
+  useEffect(() => {
+    if(!rawData.measurements)
+      return;
+
     setValues(transformValuesToList(rawData));
     setCumValues(transformCumValuesToList(rawData));
+    lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
   }, [rawData]);
 
   useEffect(() => {
+    if(!rawData.measurements)
+      return;
+
     setValues(transformValuesToList(rawData))
   }, [visualization])
 
+  const setNextTimeout = () => {
+    if(currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.viewingLiveNotTracking))
+      setTimeout(loadLiveNewData, 2500);
+  }
+
+  const [newData, setNewData] = useState(null);
+
+  const loadLiveNewData = () => {
+    const url = "http://localhost:5000/mock_stream?last_timestamp=" + lastTimestamp.current;
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if(!data.timestamps || data.timestamps.length === 0) {
+          setNextTimeout();
+        } else {
+          if(currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.viewingLiveNotTracking))
+            setNewData(data);
+        }
+      });
+  }
+
+  const MAX_LIVE_BUFFER_SIZE = 20;
+
+  function concatData(oldData, newData) {
+    // Do not exceed max buffer size. Discard older data if necessary
+    const old_length = oldData.timestamps.length;
+    const new_length = newData.timestamps.length;
+    if(old_length + new_length > MAX_LIVE_BUFFER_SIZE && currentStatusIs(statuses.viewingLiveNotTracking)) {
+      changeStatus(statuses.viewingLivePaused);
+      return;
+    }
+    const {first_old, first_new} = concatDataIndexes(old_length, new_length, MAX_LIVE_BUFFER_SIZE);
+
+    const concatData = {timestamps: [], measurements: []};
+    for(let i = first_old; i < old_length; ++i) {
+      concatData.timestamps.push(oldData.timestamps[i]);
+    }
+    for(let i = first_new; i < new_length; ++i) {
+      concatData.timestamps.push(newData.timestamps[i]);
+    }
+    for(let i = 0; i < oldData.measurements.length; ++i) {
+      const ms = [];
+      for(let j = first_old; j < old_length; ++j) {
+        ms.push(oldData.measurements[i][j]);
+      }
+      for(let j = first_new; j < new_length; ++j) {
+        ms.push(newData.measurements[i][j]);
+      }
+      concatData.measurements.push(ms);
+    }
+    setRawData(concatData);
+    setNewData(null);
+    if(currentStatusIs(statuses.viewingLive)) {
+      setSelectedTimestamp(concatData.timestamps.length - 1);
+    }
+    setNextTimeout();
+  }
+
+  useEffect(() => {
+    if(currentStatusIs(statuses.viewingLive)) {
+      if(previousStatusIs(statuses.viewingLiveNotTracking)) {
+        if(rawData.timestamps) {
+          setSelectedTimestamp(rawData.timestamps.length - 1);
+        }
+      } else {
+        setNextTimeout();
+      }
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if(!newData)
+      return;
+
+    concatData(rawData, newData);
+  }, [newData]);
+
   function transformValuesToList(data) {
-    if(!data.measurements)
-      return [];
     const measurements = data.measurements;
     const res = [];
     for(let i = 0; i < measurements.length; ++i) {
@@ -278,9 +418,6 @@ function App() {
   };
 
   function transformCumValuesToList(data) {
-    if(!data.measurements)
-      return;
-
     let squares = selectedSquares;
     if(selectedSquares.length === 0) {
       squares = [];
@@ -295,7 +432,8 @@ function App() {
     for(const square of squares) {
       const squareMeasurements = data.measurements[square];
       for(let i = 0; i < squareMeasurements.length; ++i) {
-        selectedSquaresCumValues[i] += squareMeasurements[i];
+        const squareMeasurement = squareMeasurements[i] ? squareMeasurements[i] : 0;
+        selectedSquaresCumValues[i] += squareMeasurement;
       }
     }
     return selectedSquaresCumValues;
@@ -370,7 +508,7 @@ function App() {
     }
   }
 
-  useEffect(() => setCumValues(transformCumValuesToList(rawData)), [selectedSquares]);
+  useEffect(() => rawData.measurements && setCumValues(transformCumValuesToList(rawData)), [selectedSquares]);
 
   const [pane, setPane] = useState("");
 
@@ -379,7 +517,7 @@ function App() {
   return (
     <div>
       <div style={{position: "absolute", top: "25px", left: "10%", right: "10%", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} />
+        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{"& .MuiSlider-thumb": { color: currentStatusIs(statuses.viewingLive) ? "red" : ""}}} />
         <Stack direction="row" spacing={2}>
           <ToggleButtonGroup exclusive value={pane} onChange={(_, selected) => selected === pane ? setPane("") : setPane(selected)} >
             <ToggleButton value="history">History</ToggleButton>
@@ -395,7 +533,7 @@ function App() {
           <IconButtonWithTooltip tooltip="Go to next critical point" iconComponent={SkipNextIcon} />
           <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
           <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
-          <span style={{position: "relative", top: "10px"}}>{status.caption} {status.buttonText && <Button>{status.buttonText}</Button>}</span>
+          <span style={{position: "relative", top: "10px"}}>{status.caption} {status.buttonText && <Button variant="outlined" onClick={status.buttonOnClick}>{status.buttonText}</Button>}</span>
         </Stack>
       </div>
       { pane === "history" &&
@@ -473,9 +611,9 @@ function App() {
         </Map>
       </div>
       {visualization == "absolute" &&
-        <div style={{position: "absolute", bottom: "0px", left: "0px", height: "30%", width: "30%", zIndex: 100, backgroundColor: "rgba(255, 255, 255, 1.0)"}}>
+        <div style={{position: "absolute", bottom: "0px", left: "0px", height: "30%", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
           <Line
-            data={{labels: rawData.timestamps ? rawData.timestamps.map(formatTimestamp) : [], datasets: [{data: cumValues, borderColor: 'rgb(60, 60, 60)', pointBackgroundColor: (ctx) => ctx.dataIndex == selectedTimestamp ? "rgb(52, 213, 255)" : "rgb(60, 60, 60)"}]}}
+            data={{labels: rawData.timestamps ? rawData.timestamps.map(formatTimestamp) : [], datasets: [{data: cumValues, borderColor: 'rgb(60, 60, 60)', pointBackgroundColor: (ctx) => ctx.dataIndex == selectedTimestamp ? (currentStatusIs(statuses.viewingLive) ? "red" : "rgb(52, 213, 255)") : "rgb(60, 60, 60)"}]}}
             options={{scales: {x: {display: false}}}} />
         </div>}
     </div>
