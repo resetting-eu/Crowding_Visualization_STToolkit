@@ -11,8 +11,6 @@ import Slider from '@mui/material/Slider'
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import { Tooltip as MUITooltip } from '@mui/material';
 import HelpIcon from '@mui/icons-material/Help';
@@ -23,7 +21,7 @@ import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import IconButton from '@mui/material/IconButton';
-import { TextField } from '@mui/material';
+import TextField from '@mui/material/TextField';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
@@ -41,6 +39,8 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
 import { concatDataIndexes } from './Utils';
+import Toolbar from './Toolbar';
+import StatusPane from './StatusPane';
 
 dayjs.extend(customParseFormat);
 dayjs.extend(localizedFormat);
@@ -516,28 +516,23 @@ function App() {
 
   return (
     <div>
-      <div style={{position: "absolute", top: "25px", left: "10%", right: "10%", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{"& .MuiSlider-thumb": { color: currentStatusIs(statuses.viewingLive) ? "red" : ""}}} />
-        <Stack direction="row" spacing={2}>
-          <ToggleButtonGroup exclusive value={pane} onChange={(_, selected) => selected === pane ? setPane("") : setPane(selected)} >
-            <ToggleButton value="history">History</ToggleButton>
-            <ToggleButton value="points">Find points</ToggleButton>
-          </ToggleButtonGroup>
-          <TextField select value={visualization} sx={{width: 253}} label="Visualization" onChange={change(setVisualization)}>
-            <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
-            <MenuItem value="density" key="density">Density of devices</MenuItem>
-            <MenuItem value="both" key="both">Number + density of devices</MenuItem>
-          </TextField>
-          <IconButtonWithTooltip tooltip="Play animation" iconComponent={PlayArrowIcon} />
-          <IconButtonWithTooltip tooltip="Go to previous critical point" iconComponent={SkipPreviousIcon} />
-          <IconButtonWithTooltip tooltip="Go to next critical point" iconComponent={SkipNextIcon} />
-          <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
-          <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
-          <span style={{position: "relative", top: "10px"}}>{status.caption} {status.buttonText && <Button variant="outlined" onClick={status.buttonOnClick}>{status.buttonText}</Button>}</span>
-        </Stack>
-      </div>
-      { pane === "history" &&
-        <div style={{position: "absolute", top: "140px", left: "10%", zIndex: 100, padding: "15px 20px",  borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+      <StatusPane status={status} />
+      <Toolbar style={{position: "absolute", width: "160px", left: "10px", top: "100px", zIndex: 100}}
+       panes={[
+        {title: "Visualization options", content:
+          <Stack direction="row" spacing={2}>
+            <TextField select value={visualization} sx={{width: 253}} label="Visualization" onChange={change(setVisualization)}>
+              <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
+              <MenuItem value="density" key="density">Density of devices</MenuItem>
+              <MenuItem value="both" key="both">Number + density of devices</MenuItem>
+            </TextField>
+            <IconButtonWithTooltip tooltip="Play animation" iconComponent={PlayArrowIcon} />
+            <IconButtonWithTooltip tooltip="Go to previous critical point" iconComponent={SkipPreviousIcon} />
+            <IconButtonWithTooltip tooltip="Go to next critical point" iconComponent={SkipNextIcon} />
+            <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
+            <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
+          </Stack>},
+        {title: "History", content:
           <Stack spacing={2}>
             <Stack direction="row" spacing={2}>
               <DateTimeWidget label="Start" value={start} onChange={setStart} />
@@ -565,20 +560,16 @@ function App() {
                 </TextField>
               </span>
             </Stack>
-          </Stack>
-          <div>
-            <span style={{display: "inline-block", width: "275px", textAlign: "right"}}>
+            <div style={{position: "relative", width: "100%", textAlign: "center"}}>
               <Button variant="contained" onClick={load}>Load</Button>
-            </span>
-            <span style={{position: "relative", top: "18px", marginLeft: "15px", overflow: "hidden"}}>
-              { loading && <CircularProgress/> }
-            </span>
-          </div>
-        </div>}
-      { pane === "points" && 
-        <div style={{position: "absolute", top: "140px", left: "calc(10% + 107px)", zIndex: 100, padding: "15px 20px", borderRadius: 25, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+            </div>
+          </Stack>},
+        {title: "Points", content:
           <p>Not implemented yet</p>
-        </div>}
+        }]} />
+      <div style={{position: "absolute", top: "25px", left: "10%", right: "10%", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{"& .MuiSlider-thumb": { color: currentStatusIs(statuses.viewingLive) ? "red" : ""}}} />
+      </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
         <Map mapLib={maplibregl} mapStyle={style} initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
           onClick={(e) => !drawing && toggleSquare(e.lngLat)}
