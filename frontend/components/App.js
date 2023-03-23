@@ -25,6 +25,9 @@ import TextField from '@mui/material/TextField';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import SettingsIcon from '@mui/icons-material/Settings';
+import ManageHistoryIcon from '@mui/icons-material/ManageHistory';
+import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -155,6 +158,18 @@ function IconButtonWithTooltip(props) {
   );
 }
 
+// ***************************
+// Change these constants to true in order to fetch local data from the backend
+// ***************************
+const LOCAL_MONGODB = false;
+const LOCAL_INFLUXDB = true;
+// ***************************
+
+
+const GRID_URL = LOCAL_MONGODB ? "http://localhost:5000/grid_local" : "http://localhost:5000/grid";
+const HISTORY_URL = LOCAL_INFLUXDB ? "http://localhost:5000/data_range_local" : "http://localhost:5000/data_range";
+const LIVE_URL = LOCAL_INFLUXDB ? "http://localhost:5000/mock_stream_local" : "http://localhost:5000/mock_stream";
+
 function App() {
   const [grid, setGrid] = useState(emptyGeoJson);
   const [rawData, setRawData] = useState([]);
@@ -162,8 +177,7 @@ function App() {
   const [cumValues, setCumValues] = useState([]);
 
   useEffect(() => {
-    // fetch("http://localhost:5000/grid") // load grid
-    fetch("http://localhost:5000/grid_local")
+    fetch(GRID_URL)
       .then(r => r.json())
       .then(data => {
         data.sort((a, b) => a.properties.id - b.properties.id);
@@ -171,13 +185,12 @@ function App() {
       });
 
     loadLive();
-    }, []);
+  }, []);
 
   const [start, setStart] = useState("2022-08-01T00:00:00Z");
   const [end, setEnd] = useState("2022-08-02T00:00:00Z");
   const [everyNumber, setEveryNumber] = useState("1");
   const [everyUnit, setEveryUnit] = useState("h");
-  const [loading, setLoading] = useState(false);
 
   const [selectedTimestamp, setSelectedTimestamp] = useState(0);
 
@@ -237,14 +250,12 @@ function App() {
   }
 
   function load() {
-    setLoading(true);
     changeStatus(statuses.loadingHistory);
-    const url = "http://localhost:5000/data_range?start=" + start + "&end=" + end
+    const url = HISTORY_URL + "?start=" + start + "&end=" + end
       + "&every=" + everyNumber + everyUnit + "&measurement=" + measurement.name;
     fetch(url)
       .then(r => r.json())
       .then(data => {
-        setLoading(false);
         changeStatus(statuses.viewingHistory);
         setRawData(data);
       });
@@ -252,8 +263,7 @@ function App() {
 
   function loadLive() {
     changeStatus(statuses.loadingLive);
-    const url = "http://localhost:5000/mock_stream";
-    fetch(url)
+    fetch(LIVE_URL)
       .then(r => r.json())
       .then(data => {
         setSelectedTimestamp(data.timestamps.length - 1);
@@ -294,7 +304,7 @@ function App() {
   const [newData, setNewData] = useState(null);
 
   const loadLiveNewData = () => {
-    const url = "http://localhost:5000/mock_stream?last_timestamp=" + lastTimestamp.current;
+    const url = LIVE_URL + "?last_timestamp=" + lastTimestamp.current;
     fetch(url)
       .then(r => r.json())
       .then(data => {
@@ -346,6 +356,7 @@ function App() {
 
   useEffect(() => {
     if(currentStatusIs(statuses.viewingLive)) {
+      thumbStartBlinking();
       if(previousStatusIs(statuses.viewingLiveNotTracking)) {
         if(rawData.timestamps) {
           setSelectedTimestamp(rawData.timestamps.length - 1);
@@ -353,8 +364,32 @@ function App() {
       } else {
         setNextTimeout();
       }
+    } else {
+      thumbStopBlinking();
     }
   }, [status]);
+
+  // for blinking slider thumb when live
+  const [thumbColor, setThumbColor] = useState("");
+  const thumbColorRef = useRef("");
+  const thumbBlinkingInterval = useRef(null);
+
+  function thumbStartBlinking() {
+    thumbBlinkingInterval.current = setInterval(() => {
+      const color = thumbColorRef.current === "" ? "red" : "";
+      thumbColorRef.current = color;
+      setThumbColor(color);
+    }, 500);
+  }
+
+  function thumbStopBlinking() {
+    if(thumbBlinkingInterval.current) {
+      clearInterval(thumbBlinkingInterval.current);
+      thumbBlinkingInterval.current = null;
+      thumbColorRef.current = "";
+      setThumbColor("");
+    }
+  }
 
   useEffect(() => {
     if(!newData)
@@ -510,16 +545,13 @@ function App() {
 
   useEffect(() => rawData.measurements && setCumValues(transformCumValuesToList(rawData)), [selectedSquares]);
 
-  const [pane, setPane] = useState("");
-
   const [measurement, setMeasurement] = useState(measurements[0]);
 
   return (
     <div>
       <StatusPane status={status} />
-      <Toolbar style={{position: "absolute", width: "160px", left: "10px", top: "100px", zIndex: 100}}
-       panes={[
-        {title: "Visualization options", content:
+      <Toolbar panes={[
+        {title: "Visualization options", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
             <TextField select value={visualization} sx={{width: 253}} label="Visualization" onChange={change(setVisualization)}>
               <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
@@ -532,7 +564,7 @@ function App() {
             <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
             <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
           </Stack>},
-        {title: "History", content:
+        {title: "History", icon: <ManageHistoryIcon/>, content:
           <Stack spacing={2}>
             <Stack direction="row" spacing={2}>
               <DateTimeWidget label="Start" value={start} onChange={setStart} />
@@ -564,11 +596,11 @@ function App() {
               <Button variant="contained" onClick={load}>Load</Button>
             </div>
           </Stack>},
-        {title: "Points", content:
+        {title: "Points", icon: <TroubleshootIcon/>, content:
           <p>Not implemented yet</p>
         }]} />
       <div style={{position: "absolute", top: "25px", left: "10%", right: "10%", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{"& .MuiSlider-thumb": { color: currentStatusIs(statuses.viewingLive) ? "red" : ""}}} />
+        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{"& .MuiSlider-thumb": { color: thumbColor}}} />
       </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
         <Map mapLib={maplibregl} mapStyle={style} initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
