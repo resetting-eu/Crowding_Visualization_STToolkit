@@ -88,8 +88,8 @@ def increment_current_dt():
   global current_dt
   current_dt = current_dt + INCREMENT
 
-LOCAL_DATA_SIZE = 24 # number of timestamps in local data
-current_mock_index = 0
+LOCAL_DATA_SIZE = len(LOCAL_DATA["timestamps"])
+current_mock_index = 20
 
 def increment_current_mock_index():
     global current_mock_index
@@ -126,13 +126,12 @@ def mock_stream_local():
     last_timestamp = request.args.get("last_timestamp")
     if last_timestamp:
         first_index = LOCAL_DATA["timestamps"].index(last_timestamp)
-        if first_index < last_index:
-            first_index = last_index
-            last_index = LOCAL_DATA_SIZE
+        if first_index > last_index:
+            first_index = last_index - 1
     else:
         first_index = 0
     measurements = []
     for measurement in LOCAL_DATA["measurements"]:
-        measurements.append(measurement[first_index:last_index+1])
-    timestamps = LOCAL_DATA["timestamps"][first_index:last_index+1]
+        measurements.append(measurement[first_index+1:last_index+1])
+    timestamps = LOCAL_DATA["timestamps"][first_index+1:last_index+1]
     return jsonify({"measurements": measurements, "timestamps": timestamps})
