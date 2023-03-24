@@ -1,11 +1,10 @@
-import Map, {NavigationControl} from 'react-map-gl';
+import Map, {NavigationControl, useControl} from 'react-map-gl';
 import maplibregl from 'maplibre-gl';
 import {GeoJsonLayer, ColumnLayer} from '@deck.gl/layers';
 
 import React, { useState, useEffect, createElement, useRef } from 'react';
 
 import {MapboxOverlay} from '@deck.gl/mapbox/typed';
-import {useControl} from 'react-map-gl';
 
 import Slider from '@mui/material/Slider'
 import MenuItem from '@mui/material/MenuItem';
@@ -161,7 +160,7 @@ function IconButtonWithTooltip(props) {
 // ***************************
 // Change these constants to true in order to fetch local data from the backend
 // ***************************
-const LOCAL_MONGODB = false;
+const LOCAL_MONGODB = true;
 const LOCAL_INFLUXDB = true;
 // ***************************
 
@@ -182,9 +181,8 @@ function App() {
       .then(data => {
         data.sort((a, b) => a.properties.id - b.properties.id);
         setGrid(data);
+        loadLive();
       });
-
-    loadLive();
   }, []);
 
   const [start, setStart] = useState("2022-08-01T00:00:00Z");
@@ -196,12 +194,10 @@ function App() {
 
   const [visualization, setVisualization] = useState("absolute");
 
-  useEffect(() => {
-    if(!rawData.measurements)
-      return;
-
-    setValues(transformValuesToList(rawData));
-  }, [selectedTimestamp]);
+  function changeSelectedTimestamp(value) {
+    setSelectedTimestamp(value);
+    setValues(transformValuesToList(rawData, value, visualization));
+  }
 
   function change(setter) {
     return event => setter(event.target.value);
@@ -231,9 +227,27 @@ function App() {
   const previousStatusRef = useRef(statuses.noData);
 
   function changeStatus(s) {
+    if(statusEquals(s, statusRef.current)) {
+      console.log("changeStatus called with current status: " + s.current.caption);
+      return;
+    }
+
     previousStatusRef.current = statusRef.current;
     setStatus(s);
     statusRef.current = s;
+
+    if(currentStatusIs(statuses.viewingLive)) {
+      thumbStartBlinking();
+      if(previousStatusIs(statuses.viewingLiveNotTracking)) {
+        if(rawData.timestamps) {
+          changeSelectedTimestamp(rawData.timestamps.length - 1);
+        }
+      } else {
+        setNextTimeout();
+      }
+    } else {
+      thumbStopBlinking();
+    }
   }
 
   // assumption: statuses captions are unique
@@ -266,17 +280,10 @@ function App() {
     fetch(LIVE_URL)
       .then(r => r.json())
       .then(data => {
-        setSelectedTimestamp(data.timestamps.length - 1);
         changeStatus(statuses.viewingLive);
         setRawData(data);
       });
   }
-
-  useEffect(() => {
-    if(currentStatusIs(statuses.viewingLive) && selectedTimestamp !== rawData.timestamps.length - 1)
-      changeStatus(statuses.viewingLiveNotTracking);
-  }, [selectedTimestamp]);
-
 
   const lastTimestamp = useRef(null);
 
@@ -284,17 +291,17 @@ function App() {
     if(!rawData.measurements)
       return;
 
-    setValues(transformValuesToList(rawData));
+    setValues(transformValuesToList(rawData, selectedTimestamp, visualization));
     setCumValues(transformCumValuesToList(rawData));
     lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
+    if(currentStatusIs(statuses.viewingLive))
+      changeSelectedTimestamp(rawData.timestamps.length - 1);
   }, [rawData]);
 
-  useEffect(() => {
-    if(!rawData.measurements)
-      return;
-
-    setValues(transformValuesToList(rawData))
-  }, [visualization])
+  function changeVisualization(e) {
+    setVisualization(e.target.value);
+    setValues(transformValuesToList(rawData, selectedTimestamp, e.target.value));
+  }
 
   const setNextTimeout = () => {
     if(currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.viewingLiveNotTracking))
@@ -349,25 +356,10 @@ function App() {
     setRawData(concatData);
     setNewData(null);
     if(currentStatusIs(statuses.viewingLive)) {
-      setSelectedTimestamp(concatData.timestamps.length - 1);
+      changeSelectedTimestamp(concatData.timestamps.length - 1);
     }
     setNextTimeout();
   }
-
-  useEffect(() => {
-    if(currentStatusIs(statuses.viewingLive)) {
-      thumbStartBlinking();
-      if(previousStatusIs(statuses.viewingLiveNotTracking)) {
-        if(rawData.timestamps) {
-          setSelectedTimestamp(rawData.timestamps.length - 1);
-        }
-      } else {
-        setNextTimeout();
-      }
-    } else {
-      thumbStopBlinking();
-    }
-  }, [status]);
 
   // for blinking slider thumb when live
   const [thumbColor, setThumbColor] = useState("");
@@ -398,7 +390,7 @@ function App() {
     concatData(rawData, newData);
   }, [newData]);
 
-  function transformValuesToList(data) {
+  function transformValuesToList(data, selectedTimestamp, visualization) {
     const measurements = data.measurements;
     const res = [];
     for(let i = 0; i < measurements.length; ++i) {
@@ -421,7 +413,7 @@ function App() {
   }
 
   function calcDensity(value, unusable_area) {
-    const usable_area = 200 * 200 - unusable_area;
+    const usable_area = 200 * 200 - unusable_area; // TODO actually calculate area of square
     const density = value / usable_area;
     return density.toFixed(3);
   }
@@ -433,18 +425,19 @@ function App() {
 
   // https://stackoverflow.com/questions/7128675/from-green-to-red-color-depend-on-percentage
   function getColorForPercentage(pct) {
-    for (var i = 1; i < percentColors.length - 1; i++) {
+    let i;
+    for (i = 1; i < percentColors.length - 1; i++) {
         if (pct < percentColors[i].pct) {
             break;
         }
     }
-    var lower = percentColors[i - 1];
-    var upper = percentColors[i];
-    var range = upper.pct - lower.pct;
-    var rangePct = (pct - lower.pct) / range;
-    var pctLower = 1 - rangePct;
-    var pctUpper = rangePct;
-    var color = {
+    let lower = percentColors[i - 1];
+    let upper = percentColors[i];
+    let range = upper.pct - lower.pct;
+    let rangePct = (pct - lower.pct) / range;
+    let pctLower = 1 - rangePct;
+    let pctUpper = rangePct;
+    let color = {
         r: Math.floor(lower.color.r * pctLower + upper.color.r * pctUpper),
         g: Math.floor(lower.color.g * pctLower + upper.color.g * pctUpper),
         b: Math.floor(lower.color.b * pctLower + upper.color.b * pctUpper)
@@ -474,8 +467,10 @@ function App() {
     return selectedSquaresCumValues;
   }
 
-  function sliderChange(e, value) {
-    setSelectedTimestamp(value);
+  function sliderChange(_, value) {
+    changeSelectedTimestamp(value);
+    if(currentStatusIs(statuses.viewingLive) && value !== rawData.timestamps.length - 1)
+      changeStatus(statuses.viewingLiveNotTracking);
   }
 
   function tooltip(index) {
@@ -547,13 +542,25 @@ function App() {
 
   const [measurement, setMeasurement] = useState(measurements[0]);
 
+  function chartPointColor(ctx) {
+    if(ctx.dataIndex === selectedTimestamp) {
+      if(currentStatusIs(statuses.viewingLive)) {
+        return "red";
+      } else {
+        return "rgb(52, 213, 255)";
+      }
+    } else {
+      return "rgb(60, 60, 60)";
+    }
+  }
+
   return (
     <div>
       <StatusPane status={status} />
       <Toolbar panes={[
         {title: "Visualization options", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
-            <TextField select value={visualization} sx={{width: 253}} label="Visualization" onChange={change(setVisualization)}>
+            <TextField select value={visualization} sx={{width: 253}} label="Visualization" onChange={changeVisualization}>
               <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
               <MenuItem value="density" key="density">Density of devices</MenuItem>
               <MenuItem value="both" key="both">Number + density of devices</MenuItem>
@@ -636,7 +643,7 @@ function App() {
       {visualization == "absolute" &&
         <div style={{position: "absolute", bottom: "0px", left: "0px", height: "30%", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
           <Line
-            data={{labels: rawData.timestamps ? rawData.timestamps.map(formatTimestamp) : [], datasets: [{data: cumValues, borderColor: 'rgb(60, 60, 60)', pointBackgroundColor: (ctx) => ctx.dataIndex == selectedTimestamp ? (currentStatusIs(statuses.viewingLive) ? "red" : "rgb(52, 213, 255)") : "rgb(60, 60, 60)"}]}}
+            data={{labels: rawData.timestamps ? rawData.timestamps.map(formatTimestamp) : [], datasets: [{data: cumValues, borderColor: 'rgb(60, 60, 60)', pointBackgroundColor: chartPointColor}]}}
             options={{scales: {x: {display: false}}}} />
         </div>}
     </div>
