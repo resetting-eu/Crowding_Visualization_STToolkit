@@ -129,6 +129,7 @@ function DateTimeWidget(props) {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <DateTimePicker
+        disabled={props.disabled}
         renderInput={(props) => <TextField {...props} />}
         label={props.label}
         value={dateObj}
@@ -169,6 +170,16 @@ const GRID_URL = LOCAL_MONGODB ? "http://localhost:5000/grid_local" : "http://lo
 const HISTORY_URL = LOCAL_INFLUXDB ? "http://localhost:5000/data_range_local" : "http://localhost:5000/data_range";
 const LIVE_URL = LOCAL_INFLUXDB ? "http://localhost:5000/mock_stream_local" : "http://localhost:5000/mock_stream";
 
+const statuses = {
+  loadingHistory: {caption: "Loading historical data..."},
+  viewingHistory: {caption: "Viewing historical data"},
+  loadingLive: {caption: "Loading live data..."},
+  viewingLive: {caption: "Viewing live data"},
+  viewingLiveNotTracking: {caption: "Not automatically tracking latest moment"},
+  viewingLivePaused: {caption: "Live update paused (buffer limit reached)"},
+  noData: {caption: "No data loaded"}
+}
+
 function App() {
   const [grid, setGrid] = useState(emptyGeoJson);
   const [rawData, setRawData] = useState([]);
@@ -203,25 +214,6 @@ function App() {
     return event => setter(event.target.value);
   }
 
-  // statuses captions must be unique
-  const statuses = {
-    loadingHistory: {caption: "Loading historical data...", buttonText: "Cancel"},
-    viewingHistory: {caption: "Viewing historical data", buttonText: "Live", buttonOnClick: loadLive},
-    loadingLive: {caption: "Loading live data...", buttonText: "Cancel"},
-    viewingLive: {caption: "Viewing live data", buttonText: "Untrack", buttonOnClick: livePause},
-    viewingLiveNotTracking: {caption: "Viewing live data (no track)", buttonText: "Track", buttonOnClick: liveTrack},
-    viewingLivePaused: {caption: "Viewing live data (paused)", buttonText: "Live", buttonOnClick: loadLive},
-    noData: {caption: "No data loaded"}
-  }
-
-  function livePause() {
-    changeStatus(statuses.viewingLiveNotTracking);
-  }
-
-  function liveTrack() {
-    changeStatus(statuses.viewingLive);
-  }
-
   const [status, setStatus] = useState(statuses.noData);
   const statusRef = useRef(statuses.noData);
   const previousStatusRef = useRef(statuses.noData);
@@ -250,9 +242,8 @@ function App() {
     }
   }
 
-  // assumption: statuses captions are unique
   function statusEquals(s1, s2) {
-    return s1.caption === s2.caption;
+    return s1 === s2;
   }
 
   function currentStatusIs(s) {
@@ -263,6 +254,9 @@ function App() {
     return statusEquals(s, previousStatusRef.current);
   }
 
+  const freezeToolbar = currentStatusIs(statuses.loadingHistory) || currentStatusIs(statuses.loadingLive);
+  const loadingHistory = currentStatusIs(statuses.loadingHistory);
+
   function load() {
     changeStatus(statuses.loadingHistory);
     const url = HISTORY_URL + "?start=" + start + "&end=" + end
@@ -270,8 +264,15 @@ function App() {
     fetch(url)
       .then(r => r.json())
       .then(data => {
-        changeStatus(statuses.viewingHistory);
-        setRawData(data);
+        const setData = () => {
+          changeStatus(statuses.viewingHistory);
+          setRawData(data);
+        };
+        if(LOCAL_INFLUXDB) {
+          setTimeout(setData, 5000); // simulate delay
+        } else {
+          setData();
+        }
       });
   }
 
@@ -296,6 +297,8 @@ function App() {
     lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
     if(currentStatusIs(statuses.viewingLive))
       changeSelectedTimestamp(rawData.timestamps.length - 1);
+    else if(currentStatusIs(statuses.viewingHistory))
+      changeSelectedTimestamp(0);
   }, [rawData]);
 
   function changeVisualization(e) {
@@ -554,10 +557,18 @@ function App() {
     }
   }
 
+  function liveButtonOnClick() {
+    if(currentStatusIs(statuses.viewingHistory)) {
+      loadLive();
+    } else if(currentStatusIs(statuses.viewingLiveNotTracking) || currentStatusIs(statuses.viewingLivePaused)) {
+      changeStatus(statuses.viewingLive);
+    }
+  }
+
   return (
     <div>
       <StatusPane status={status} />
-      <Toolbar panes={[
+      <Toolbar freeze={freezeToolbar} panes={[
         {title: "Visualization options", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
             <TextField select value={visualization} sx={{width: 253}} label="Visualization" onChange={changeVisualization}>
@@ -571,15 +582,15 @@ function App() {
             <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
             <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
           </Stack>},
-        {title: "History", icon: <ManageHistoryIcon/>, content:
+        {title: "History", icon: <ManageHistoryIcon/>, stayOnFreeze: true, content:
           <Stack spacing={2}>
             <Stack direction="row" spacing={2}>
-              <DateTimeWidget label="Start" value={start} onChange={setStart} />
-              <DateTimeWidget label="End" value={end} onChange={setEnd} />
+              <DateTimeWidget label="Start" value={start} onChange={setStart} disabled={loadingHistory} />
+              <DateTimeWidget label="End" value={end} onChange={setEnd} disabled={loadingHistory} />
             </Stack>
             <Stack direction="row" spacing={2} sx={{textAlign: "center"}} maxWidth={true} float="left">
-              <TextField type="number" label="Interval" sx={{width: 75}} value={everyNumber} onChange={e => setEveryNumber(e.target.value)} />
-              <TextField select value={everyUnit} label="Unit" onChange={change(setEveryUnit)} sx={{width: 95}}>
+              <TextField type="number" label="Interval" sx={{width: 75}} value={everyNumber} onChange={e => setEveryNumber(e.target.value)} disabled={loadingHistory} />
+              <TextField select value={everyUnit} label="Unit" onChange={change(setEveryUnit)} sx={{width: 95}} disabled={loadingHistory} >
                 <MenuItem value="m" key="m">Minute</MenuItem>
                 <MenuItem value="h" key="h">Hour</MenuItem>
                 <MenuItem value="d" key="d">Day</MenuItem>
@@ -592,7 +603,7 @@ function App() {
                 </MUITooltip>
               </span>
               <span style={{width: "247px", textAlign: "right"}}>
-                <TextField select label="Measurement" sx={{width: 100}} value={measurement} onChange={change(setMeasurement)} SelectProps={{renderValue: (m) => m.name}}>
+                <TextField select label="Measurement" sx={{width: 100}} value={measurement} onChange={change(setMeasurement)} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
                   {measurements.map(m => (
                     <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
                   ))}
@@ -600,14 +611,17 @@ function App() {
               </span>
             </Stack>
             <div style={{position: "relative", width: "100%", textAlign: "center"}}>
-              <Button variant="contained" onClick={load}>Load</Button>
+              {loadingHistory ? <Button variant="contained">Cancel</Button> : <Button variant="contained" onClick={load}>Load</Button>}
             </div>
           </Stack>},
         {title: "Points", icon: <TroubleshootIcon/>, content:
           <p>Not implemented yet</p>
         }]} />
-      <div style={{position: "absolute", top: "25px", left: "10%", right: "10%", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-        <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{"& .MuiSlider-thumb": { color: thumbColor}}} />
+      <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+        <Stack direction="row" spacing={10}>
+          <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{"& .MuiSlider-thumb": { color: thumbColor}, "& .MuiSlider-valueLabel.MuiSlider-valueLabelOpen": { transform: "translateY(125%) scale(1)" }, "& .MuiSlider-valueLabel:before": { transform: "translate(-50%, -300%) rotate(45deg)" }}} />
+          <Button variant="contained" onClick={liveButtonOnClick}>Live</Button>
+        </Stack>
       </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
         <Map mapLib={maplibregl} mapStyle={style} initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}

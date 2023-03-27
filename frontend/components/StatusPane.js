@@ -1,17 +1,27 @@
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
+
+import { useEffect, useRef, useState } from 'react';
 
 function StatusPane({status}) {
+  const [statusToDisplay, setStatusToDisplay] = useState(null);
+  const timeoutID = useRef(null);
+
+  useEffect(() => {
+    setStatusToDisplay(status);
+    if(timeoutID.current)
+      clearInterval(timeoutID.current);
+    timeoutID.current = setTimeout(() => {
+      setStatusToDisplay(null);
+    }, 5000);
+  }, [status]);
+
   return (
-    <div style={{position: "absolute", left: 0, top: "100px", width: "100%", textAlign: "center", zIndex: 100}}>
+    statusToDisplay &&
+    <div style={{position: "absolute", left: 0, top: "75px", width: "100%", textAlign: "center", zIndex: 100}}>
       <span style={{padding: "15px 20px",  borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Typography component="span">
-          {status.caption}
+          {statusToDisplay.caption}
         </Typography>
-        {status.buttonText &&
-          <Button variant="outlined" onClick={status.buttonOnClick} sx={{marginLeft: "8px"}}>
-            {status.buttonText}
-          </Button>}
       </span>
     </div>
   );
