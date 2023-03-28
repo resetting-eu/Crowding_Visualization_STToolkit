@@ -619,7 +619,7 @@ function App() {
         }]} />
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Stack direction="row" spacing={10}>
-          <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{"& .MuiSlider-thumb": { color: thumbColor}, "& .MuiSlider-valueLabel.MuiSlider-valueLabelOpen": { transform: "translateY(125%) scale(1)" }, "& .MuiSlider-valueLabel:before": { transform: "translate(-50%, -300%) rotate(45deg)" }}} />
+          <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{zIndex: 1, "& .MuiSlider-thumb": { color: thumbColor}, "& .MuiSlider-valueLabel.MuiSlider-valueLabelOpen": { transform: "translateY(125%) scale(1)" }, "& .MuiSlider-valueLabel:before": { transform: "translate(-50%, -300%) rotate(45deg)" }}} />
           <Button variant="contained" onClick={liveButtonOnClick}>Live</Button>
         </Stack>
       </div>
