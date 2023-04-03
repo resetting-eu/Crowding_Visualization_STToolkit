@@ -12,6 +12,8 @@ function CustomSlider(props) {
   const thumbBlinkingInterval = useRef(null);
 
   function thumbStartBlinking() {
+    if(thumbBlinkingInterval.current)
+      return;
     thumbBlinkingInterval.current = setInterval(() => {
       const color = thumbColorRef.current === "" ? "red" : "";
       thumbColorRef.current = color;
