@@ -1,16 +1,14 @@
 import Map, {NavigationControl, useControl} from 'react-map-gl';
 import maplibregl from 'maplibre-gl';
-import {GeoJsonLayer, ColumnLayer} from '@deck.gl/layers';
+import {GeoJsonLayer, ColumnLayer, SolidPolygonLayer} from '@deck.gl/layers';
 
 import React, { useState, useEffect, createElement, useRef } from 'react';
 
 import {MapboxOverlay} from '@deck.gl/mapbox/typed';
 
-import Slider from '@mui/material/Slider'
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
-import CircularProgress from '@mui/material/CircularProgress';
 import { Tooltip as MUITooltip } from '@mui/material';
 import HelpIcon from '@mui/icons-material/Help';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -30,24 +28,19 @@ import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import localizedFormat from "dayjs/plugin/localizedFormat";
-
-import { Chart as ChartJS, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip } from "chart.js";
-import { Line } from "react-chartjs-2";
 
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
-import { concatDataIndexes } from './Utils';
+import { concatDataIndexes, formatTimestamp, shrinkSquare, maxFromArray, minFromArray } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
+import LineChart from './LineChart';
+import CustomSlider from './CustomSlider';
 
 dayjs.extend(customParseFormat);
-dayjs.extend(localizedFormat);
-
-ChartJS.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip);
 
 function DeckGLOverlay(props) {
   const overlay = useControl(() => new MapboxOverlay(props));
@@ -229,7 +222,6 @@ function App() {
     statusRef.current = s;
 
     if(currentStatusIs(statuses.viewingLive)) {
-      thumbStartBlinking();
       if(previousStatusIs(statuses.viewingLiveNotTracking)) {
         if(rawData.timestamps) {
           changeSelectedTimestamp(rawData.timestamps.length - 1);
@@ -237,8 +229,6 @@ function App() {
       } else {
         setNextTimeout();
       }
-    } else {
-      thumbStopBlinking();
     }
   }
 
@@ -293,7 +283,7 @@ function App() {
       return;
 
     setValues(transformValuesToList(rawData, selectedTimestamp, visualization));
-    setCumValues(transformCumValuesToList(rawData));
+    setCumValues(transformCumValuesToList(rawData, visualization));
     lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
     if(currentStatusIs(statuses.viewingLive))
       changeSelectedTimestamp(rawData.timestamps.length - 1);
@@ -364,28 +354,6 @@ function App() {
     setNextTimeout();
   }
 
-  // for blinking slider thumb when live
-  const [thumbColor, setThumbColor] = useState("");
-  const thumbColorRef = useRef("");
-  const thumbBlinkingInterval = useRef(null);
-
-  function thumbStartBlinking() {
-    thumbBlinkingInterval.current = setInterval(() => {
-      const color = thumbColorRef.current === "" ? "red" : "";
-      thumbColorRef.current = color;
-      setThumbColor(color);
-    }, 500);
-  }
-
-  function thumbStopBlinking() {
-    if(thumbBlinkingInterval.current) {
-      clearInterval(thumbBlinkingInterval.current);
-      thumbBlinkingInterval.current = null;
-      thumbColorRef.current = "";
-      setThumbColor("");
-    }
-  }
-
   useEffect(() => {
     if(!newData)
       return;
@@ -412,12 +380,16 @@ function App() {
       return 0;
     const measurement = rawData.measurements[grid_index];
     const value = measurement[selectedTimestamp];
-    return calcDensity(value, grid[grid_index].properties.unusable_area);
+    return formatDensity(calcDensity(value, grid[grid_index].properties.unusable_area));
   }
 
   function calcDensity(value, unusable_area) {
     const usable_area = 200 * 200 - unusable_area; // TODO actually calculate area of square
     const density = value / usable_area;
+    return density;
+  }
+
+  function formatDensity(density) {
     return density.toFixed(3);
   }
 
@@ -448,7 +420,7 @@ function App() {
     return [color.r, color.g, color.b, 100];
   };
 
-  function transformCumValuesToList(data) {
+  function transformCumValuesToList(data, visualization) {
     let squares = selectedSquares;
     if(selectedSquares.length === 0) {
       squares = [];
@@ -464,7 +436,11 @@ function App() {
       const squareMeasurements = data.measurements[square];
       for(let i = 0; i < squareMeasurements.length; ++i) {
         const squareMeasurement = squareMeasurements[i] ? squareMeasurements[i] : 0;
-        selectedSquaresCumValues[i] += squareMeasurement;
+        if(visualization === "absolute") {
+          selectedSquaresCumValues[i] += squareMeasurement;
+        } else if(visualization === "density") {
+          selectedSquaresCumValues[i] += calcDensity(squareMeasurement, grid[square].properties.unusable_area);
+        }
       }
     }
     return selectedSquaresCumValues;
@@ -486,11 +462,6 @@ function App() {
       html = `<span><b>${values[index]}</b> devices<br /><b>${gridDensity(index)}</b> devices/m<sup>2</sup></span>`
     }
     return {html};
-  }
-
-  function formatTimestamp(timestamp) {
-    const dateObj = dayjs(timestamp, "YYYY-MM-DDTHH:mm:ss");
-    return dateObj.format("L LT");
   }
 
   const [drawing, setDrawing] = useState(false);
@@ -541,7 +512,18 @@ function App() {
     }
   }
 
-  useEffect(() => rawData.measurements && setCumValues(transformCumValuesToList(rawData)), [selectedSquares]);
+  useEffect(() => rawData.measurements && setCumValues(transformCumValuesToList(rawData, visualization)), [selectedSquares, visualization]);
+
+  const maxCumValue = maxFromArray(cumValues);
+  const minCumValue = minFromArray(cumValues);
+  const sliderColors = [];
+  for(const v of cumValues) {
+    // normalized value, between 0.0 and 0.1
+    const nv = (v - minCumValue) / (maxCumValue - minCumValue) / 10;
+    const ca = getColorForPercentage(nv);
+    const color = `rgba(${ca.join(",")})`;
+    sliderColors.push(color);
+  }
 
   const [measurement, setMeasurement] = useState(measurements[0]);
 
@@ -619,8 +601,8 @@ function App() {
         }]} />
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Stack direction="row" spacing={10}>
-          <Slider step={1} min={0} max={rawData.timestamps ? rawData.timestamps.length - 1 : 0} value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"} sx={{zIndex: 1, "& .MuiSlider-thumb": { color: thumbColor}, "& .MuiSlider-valueLabel.MuiSlider-valueLabelOpen": { transform: "translateY(125%) scale(1)" }, "& .MuiSlider-valueLabel:before": { transform: "translate(-50%, -300%) rotate(45deg)" }}} />
-          <Button variant="contained" onClick={liveButtonOnClick}>Live</Button>
+          <CustomSlider value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"}  colors={sliderColors} live={currentStatusIs(statuses.viewingLive)}/>
+          <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive)}>Live</Button>
         </Stack>
       </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
@@ -639,14 +621,18 @@ function App() {
                 getFillColor: [selectedSquares]
               }
             }),
-            new ColumnLayer({
-              id: "barras",
-              data: values,
-              radius: 25,
+            new SolidPolygonLayer({
+              id: "prisms",
+              data: grid,
+              getPolygon: shrinkSquare,
+              getFillColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 139, 100],
+              extruded: true,
+              getElevation: (_, info) => visualization == "density" ? values[info.index] * 15000 : values[info.index],
               pickable: true,
-              getElevation: value => visualization == "density" ? value * 15000 : value,
-              getPosition: (_, info) => center(grid[info.index]).geometry.coordinates,
-              getFillColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 139, 100]
+              updateTriggers: {
+                getFillColor: [visualization],
+                getElevation: [values]
+              }
             })]}
             getTooltip={(o) => o.picked && tooltip(o.index)} />
           {/* <NavigationControl /> */}
@@ -654,12 +640,7 @@ function App() {
             <DrawControl onFinish={drawingFinished} />}
         </Map>
       </div>
-      {visualization == "absolute" &&
-        <div style={{position: "absolute", bottom: "0px", left: "0px", height: "30%", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-          <Line
-            data={{labels: rawData.timestamps ? rawData.timestamps.map(formatTimestamp) : [], datasets: [{data: cumValues, borderColor: 'rgb(60, 60, 60)', pointBackgroundColor: chartPointColor}]}}
-            options={{scales: {x: {display: false}}}} />
-        </div>}
+      <LineChart timestamps={rawData.timestamps} cumValues={cumValues} visualization={visualization} chartPointColor={chartPointColor} />
     </div>
   );
 }
