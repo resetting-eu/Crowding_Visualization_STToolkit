@@ -471,31 +471,25 @@ function App() {
   useEffect(() => setDrawControlOn(drawing), [drawing]);
 
   function drawingFinished(polygon) {
-    let squares = []; // squares that intersect the polygon
-    for(let i = 0; i < grid.length; ++i) {
-      const s = grid[i];
-      if(booleanIntersects(polygon, s)) {
-        squares.push(i);
+    setTimeout(() => {
+      let squares = []; // squares that intersect the polygon
+      for(let i = 0; i < grid.length; ++i) {
+        const s = grid[i];
+        if(booleanIntersects(polygon, s)) {
+          squares.push(i);
+        }
       }
-    }
-    const selectedSquaresWithDups = [...selectedSquares, ...squares];
-    const selectedSquaresSet = new Set(selectedSquaresWithDups);
-    setSelectedSquares([...selectedSquaresSet]);
-
-    setDrawing(false);
+      const selectedSquaresWithDups = [...selectedSquares, ...squares];
+      const selectedSquaresSet = new Set(selectedSquaresWithDups);
+      setSelectedSquares([...selectedSquaresSet]);
+  
+      setDrawing(false);  
+    }, 0);
   }
 
   const [selectedSquares, setSelectedSquares] = useState([]);
-  const [dontPick, setDontPick] = useState(false);
-
-  // dontPick é hack para não selecionar quadrícula quando o utilizador faz o último click do desenho
-  useEffect(() => drawing && setDontPick(true), [drawing]);
   
   function toggleSquare({lng, lat}) {
-    if(dontPick) {
-      setDontPick(false);
-      return;
-    }
     const p = point([lng, lat], {});
     let square = null;
     for(let i = 0; i < grid.length; ++i) {
