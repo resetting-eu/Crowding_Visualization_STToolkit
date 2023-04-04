@@ -178,6 +178,7 @@ function App() {
   const [rawData, setRawData] = useState([]);
   const [values, setValues] = useState([]);
   const [cumValues, setCumValues] = useState([]);
+  const [cumDensityValues, setCumDensityValues] = useState([]);
 
   useEffect(() => {
     fetch(GRID_URL)
@@ -283,7 +284,7 @@ function App() {
       return;
 
     setValues(transformValuesToList(rawData, selectedTimestamp, visualization));
-    setCumValues(transformCumValuesToList(rawData, visualization));
+    changeCumValues();
     lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
     if(currentStatusIs(statuses.viewingLive))
       changeSelectedTimestamp(rawData.timestamps.length - 1);
@@ -512,12 +513,26 @@ function App() {
     }
   }
 
-  useEffect(() => rawData.measurements && setCumValues(transformCumValuesToList(rawData, visualization)), [selectedSquares, visualization]);
+  function changeCumValues() {
+    if(rawData.measurements) {
+      setCumValues([]);
+      setCumDensityValues([]);
+      if(visualization === "absolute" ||  visualization === "both") {
+        setCumValues(transformCumValuesToList(rawData, "absolute"));
+      }
+      if(visualization === "density" || visualization === "both") {
+        setCumDensityValues(transformCumValuesToList(rawData, "density"));
+      }
+    }
+  }
 
-  const maxCumValue = maxFromArray(cumValues);
-  const minCumValue = minFromArray(cumValues);
+  useEffect(() => changeCumValues(), [selectedSquares, visualization]);
+
+  const arrForColors = visualization === "density" ? cumDensityValues : cumValues;
+  const maxCumValue = maxFromArray(arrForColors);
+  const minCumValue = minFromArray(arrForColors);
   const sliderColors = [];
-  for(const v of cumValues) {
+  for(const v of arrForColors) {
     // normalized value, between 0.0 and 0.1
     const nv = (v - minCumValue) / (maxCumValue - minCumValue) / 10;
     const ca = getColorForPercentage(nv);
@@ -527,15 +542,17 @@ function App() {
 
   const [measurement, setMeasurement] = useState(measurements[0]);
 
-  function chartPointColor(ctx) {
-    if(ctx.dataIndex === selectedTimestamp) {
-      if(currentStatusIs(statuses.viewingLive)) {
-        return "red";
+  function chartPointColor(color) {
+    return ctx => {
+      if(ctx.dataIndex === selectedTimestamp) {
+        if(currentStatusIs(statuses.viewingLive)) {
+          return "red";
+        } else {
+          return "rgb(52, 213, 255)";
+        }
       } else {
-        return "rgb(52, 213, 255)";
+        return color;
       }
-    } else {
-      return "rgb(60, 60, 60)";
     }
   }
 
@@ -640,7 +657,7 @@ function App() {
             <DrawControl onFinish={drawingFinished} />}
         </Map>
       </div>
-      <LineChart timestamps={rawData.timestamps} cumValues={cumValues} visualization={visualization} chartPointColor={chartPointColor} />
+      <LineChart timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} />
     </div>
   );
 }
