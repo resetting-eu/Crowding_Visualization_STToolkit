@@ -39,6 +39,7 @@ import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import LineChart from './LineChart';
 import CustomSlider from './CustomSlider';
+import { LOCAL_INFLUXDB, LOCAL_MONGODB } from './Config';
 
 dayjs.extend(customParseFormat);
 
@@ -150,14 +151,6 @@ function IconButtonWithTooltip(props) {
   </IconButton>
   );
 }
-
-// ***************************
-// Change these constants to true in order to fetch local data from the backend
-// ***************************
-const LOCAL_MONGODB = true;
-const LOCAL_INFLUXDB = true;
-// ***************************
-
 
 const GRID_URL = LOCAL_MONGODB ? "http://localhost:5000/grid_local" : "http://localhost:5000/grid";
 const HISTORY_URL = LOCAL_INFLUXDB ? "http://localhost:5000/data_range_local" : "http://localhost:5000/data_range";
@@ -433,15 +426,18 @@ function App() {
     for(let i = 0; i < data.timestamps.length; ++i) {
       selectedSquaresCumValues.push(0);
     }
+    let totalUsableArea = 0;
     for(const square of squares) {
       const squareMeasurements = data.measurements[square];
+      totalUsableArea += 200 * 200 - grid[square].properties.unusable_area;
       for(let i = 0; i < squareMeasurements.length; ++i) {
         const squareMeasurement = squareMeasurements[i] ? squareMeasurements[i] : 0;
-        if(visualization === "absolute") {
-          selectedSquaresCumValues[i] += squareMeasurement;
-        } else if(visualization === "density") {
-          selectedSquaresCumValues[i] += calcDensity(squareMeasurement, grid[square].properties.unusable_area);
-        }
+        selectedSquaresCumValues[i] += squareMeasurement;
+      }
+    }
+    if(visualization === "density") {
+      for(let i = 0; i < selectedSquaresCumValues.length; ++i) {
+        selectedSquaresCumValues[i] = selectedSquaresCumValues[i] / totalUsableArea;
       }
     }
     return selectedSquaresCumValues;
@@ -509,18 +505,12 @@ function App() {
 
   function changeCumValues() {
     if(rawData.measurements) {
-      setCumValues([]);
-      setCumDensityValues([]);
-      if(visualization === "absolute" ||  visualization === "both") {
-        setCumValues(transformCumValuesToList(rawData, "absolute"));
-      }
-      if(visualization === "density" || visualization === "both") {
-        setCumDensityValues(transformCumValuesToList(rawData, "density"));
-      }
+      setCumValues(transformCumValuesToList(rawData, "absolute"));
+      setCumDensityValues(transformCumValuesToList(rawData, "density"));
     }
   }
 
-  useEffect(() => changeCumValues(), [selectedSquares, visualization]);
+  useEffect(() => changeCumValues(), [selectedSquares]);
 
   const arrForColors = visualization === "density" ? cumDensityValues : cumValues;
   const maxCumValue = maxFromArray(arrForColors);
@@ -536,17 +526,15 @@ function App() {
 
   const [measurement, setMeasurement] = useState(measurements[0]);
 
-  function chartPointColor(color) {
-    return ctx => {
-      if(ctx.dataIndex === selectedTimestamp) {
-        if(currentStatusIs(statuses.viewingLive)) {
-          return "red";
-        } else {
-          return "rgb(52, 213, 255)";
-        }
+  function chartPointColor(ctx) {
+    if(ctx.dataIndex === selectedTimestamp) {
+      if(currentStatusIs(statuses.viewingLive)) {
+        return "red";
       } else {
-        return color;
+        return "rgb(52, 213, 255)";
       }
+    } else {
+      return "rgb(60, 60, 60)";
     }
   }
 
