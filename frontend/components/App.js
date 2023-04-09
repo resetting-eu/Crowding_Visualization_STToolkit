@@ -1,6 +1,7 @@
 import Map, {NavigationControl, useControl} from 'react-map-gl';
 import maplibregl from 'maplibre-gl';
-import {GeoJsonLayer, ColumnLayer, SolidPolygonLayer} from '@deck.gl/layers';
+import { GeoJsonLayer } from '@deck.gl/layers';
+import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
 
 import React, { useState, useEffect, createElement, useRef } from 'react';
 
@@ -34,12 +35,13 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
-import { concatDataIndexes, formatTimestamp, shrinkSquare, maxFromArray, minFromArray } from './Utils';
+import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import LineChart from './LineChart';
 import CustomSlider from './CustomSlider';
 import { LOCAL_INFLUXDB, LOCAL_MONGODB } from './Config';
+import { CUBE_MESH } from './CubeMesh';
 
 dayjs.extend(customParseFormat);
 
@@ -151,6 +153,8 @@ function IconButtonWithTooltip(props) {
   </IconButton>
   );
 }
+
+const PRISM_SIDE_LENGTH = 25 / Math.sqrt(2);
 
 const GRID_URL = LOCAL_MONGODB ? "http://localhost:5000/grid_local" : "http://localhost:5000/grid";
 const HISTORY_URL = LOCAL_INFLUXDB ? "http://localhost:5000/data_range_local" : "http://localhost:5000/data_range";
@@ -620,17 +624,19 @@ function App() {
                 getFillColor: [selectedSquares]
               }
             }),
-            new SolidPolygonLayer({
-              id: "prisms",
+            new SimpleMeshLayer({
+              id: "meshes",
               data: grid,
-              getPolygon: shrinkSquare,
-              getFillColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 139, 100],
-              extruded: true,
-              getElevation: (_, info) => visualization == "density" ? values[info.index] * 15000 : values[info.index],
+              mesh: CUBE_MESH,
               pickable: true,
+              getScale: (_, info) => [PRISM_SIDE_LENGTH, PRISM_SIDE_LENGTH, visualization === "density" ? values[info.index] * 15000 / 2 : values[info.index] / 2],
+              getTranslation: (_, info) => [0, 0, visualization === "density" ? values[info.index] * 15000 / 2 : values[info.index] / 2],
+              getPosition: s => center(s).geometry.coordinates,
+              getColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 139, 100],
               updateTriggers: {
-                getFillColor: [visualization],
-                getElevation: [values]
+                getColor: [visualization],
+                getScale: [values],
+                getTranslation: [values]
               }
             })]}
             getTooltip={(o) => o.picked && tooltip(o.index)} />
