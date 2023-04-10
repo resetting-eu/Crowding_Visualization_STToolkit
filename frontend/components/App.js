@@ -1,7 +1,6 @@
 import Map, {NavigationControl, useControl} from 'react-map-gl';
 import maplibregl from 'maplibre-gl';
 import { GeoJsonLayer } from '@deck.gl/layers';
-import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
 
 import React, { useState, useEffect, createElement, useRef } from 'react';
 
@@ -42,6 +41,7 @@ import LineChart from './LineChart';
 import CustomSlider from './CustomSlider';
 import { LOCAL_INFLUXDB, LOCAL_MONGODB } from './Config';
 import { CUBE_MESH } from './CubeMesh';
+import CustomMeshLayer from './CustomMeshLayer';
 
 dayjs.extend(customParseFormat);
 
@@ -153,8 +153,6 @@ function IconButtonWithTooltip(props) {
   </IconButton>
   );
 }
-
-const PRISM_SIDE_LENGTH = 25 / Math.sqrt(2);
 
 const GRID_URL = LOCAL_MONGODB ? "http://localhost:5000/grid_local" : "http://localhost:5000/grid";
 const HISTORY_URL = LOCAL_INFLUXDB ? "http://localhost:5000/data_range_local" : "http://localhost:5000/data_range";
@@ -624,19 +622,17 @@ function App() {
                 getFillColor: [selectedSquares]
               }
             }),
-            new SimpleMeshLayer({
+            new CustomMeshLayer({
               id: "meshes",
               data: grid,
               mesh: CUBE_MESH,
               pickable: true,
-              getScale: (_, info) => [PRISM_SIDE_LENGTH, PRISM_SIDE_LENGTH, visualization === "density" ? values[info.index] * 15000 / 2 : values[info.index] / 2],
-              getTranslation: (_, info) => [0, 0, visualization === "density" ? values[info.index] * 15000 / 2 : values[info.index] / 2],
+              getElevation: (_, info) => visualization === "density" ? values[info.index] * 15000 : values[info.index],
               getPosition: s => center(s).geometry.coordinates,
               getColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 139, 100],
               updateTriggers: {
                 getColor: [visualization],
-                getScale: [values],
-                getTranslation: [values]
+                getElevation: [visualization, values]
               }
             })]}
             getTooltip={(o) => o.picked && tooltip(o.index)} />
