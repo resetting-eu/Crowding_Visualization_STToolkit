@@ -98,26 +98,26 @@ const style = {
 const emptyGeoJson = [];
 
 const measurements = [
-  {name: "C1", description: "Number of distinct devices in square"},
-  {name: "C2", description: "Number of distinct roaming devices in square"},
-  {name: "C3", description: "Placeholder"},
-  {name: "C4", description: "Placeholder"},
-  {name: "C5", description: "Placeholder"},
-  {name: "C6", description: "Placeholder"},
-  {name: "C7", description: "Placeholder"},
-  {name: "C8", description: "Placeholder"},
-  {name: "C9", description: "Placeholder"},
-  {name: "C10", description: "Placeholder"},
-  {name: "C11", description: "Placeholder"},
-  {name: "E1", description: "Placeholder"},
-  {name: "E2", description: "Placeholder"},
-  {name: "E3", description: "Placeholder"},
-  {name: "E4", description: "Placeholder"},
-  {name: "E5", description: "Placeholder"},
-  {name: "E7", description: "Placeholder"},
-  {name: "E8", description: "Placeholder"},
-  {name: "E9", description: "Placeholder"},
-  {name: "E10", description: "Placeholder"}
+  {name: "C1", description: "Number of distinct devices in square", unit: "devices"},
+  {name: "C2", description: "Number of distinct roaming devices in square", unit: "devices"},
+  {name: "C3", description: "Number of distinct devices that stayed in square", unit: "devices"},
+  {name: "C4", description: "Number of distinct roaming devices that stayed in square", unit: "devices"},
+  {name: "C5", description: "Number of distinct devices entering the square", unit: "devices"},
+  {name: "C6", description: "Number of distinct devices exiting the square", unit: "devices"},
+  {name: "C7", description: "Number of distinct roaming devices entering the square", unit: "devices"},
+  {name: "C8", description: "Number of distinct roaming devices exiting the square", unit: "devices"},
+  {name: "C9", description: "Number of distinct devices in square with active data connection", unit: "devices"},
+  {name: "C10", description: "Number of distinct roaming devices in square with active data connection", unit: "devices"},
+  {name: "C11", description: "Number of voice calls originating from square", unit: "calls"},
+  {name: "E1", description: "Number of voice calls terminating in square", unit: "calls"},
+  {name: "E2", description: "Average rate of downstream in square", unit: "rate"},
+  {name: "E3", description: "Average rate of upstream in square", unit: "rate"},
+  {name: "E4", description: "Peak rate of downstream in square", unit: "rate"},
+  {name: "E5", description: "Peak rate of upstream in square", unit: "rate"},
+  {name: "E7", description: "Minimum permanence duration inside of square", unit: "minutes"},
+  {name: "E8", description: "Average permanence duration inside of square", unit: "minutes"},
+  {name: "E9", description: "Maximum permanence duration inside of square", unit: "minutes"},
+  {name: "E10", description: "Number of devices that share connection in square", unit: "devices"}
 ];
 
 function DateTimeWidget(props) {
@@ -196,7 +196,7 @@ function App() {
 
   function changeSelectedTimestamp(value) {
     setSelectedTimestamp(value);
-    setValues(transformValuesToList(rawData, value, visualization));
+    setValues(transformValuesToList(rawData, value, visualization, measurement));
   }
 
   function change(setter) {
@@ -246,7 +246,7 @@ function App() {
   function load() {
     changeStatus(statuses.loadingHistory);
     const url = HISTORY_URL + "?start=" + start + "&end=" + end
-      + "&every=" + everyNumber + everyUnit + "&measurement=" + measurement.name;
+      + "&every=" + everyNumber + everyUnit;
     fetch(url)
       .then(r => r.json())
       .then(data => {
@@ -278,7 +278,7 @@ function App() {
     if(!rawData.measurements)
       return;
 
-    setValues(transformValuesToList(rawData, selectedTimestamp, visualization));
+    setValues(transformValuesToList(rawData, selectedTimestamp, visualization, measurement));
     changeCumValues();
     lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
     if(currentStatusIs(statuses.viewingLive))
@@ -289,7 +289,7 @@ function App() {
 
   function changeVisualization(e) {
     setVisualization(e.target.value);
-    setValues(transformValuesToList(rawData, selectedTimestamp, e.target.value));
+    setValues(transformValuesToList(rawData, selectedTimestamp, e.target.value, measurement));
   }
 
   const setNextTimeout = () => {
@@ -325,22 +325,27 @@ function App() {
     }
     const {first_old, first_new} = concatDataIndexes(old_length, new_length, MAX_LIVE_BUFFER_SIZE);
 
-    const concatData = {timestamps: [], measurements: []};
+    const concatData = {timestamps: [], measurements: {}};
     for(let i = first_old; i < old_length; ++i) {
       concatData.timestamps.push(oldData.timestamps[i]);
     }
     for(let i = first_new; i < new_length; ++i) {
       concatData.timestamps.push(newData.timestamps[i]);
     }
-    for(let i = 0; i < oldData.measurements.length; ++i) {
-      const ms = [];
-      for(let j = first_old; j < old_length; ++j) {
-        ms.push(oldData.measurements[i][j]);
-      }
-      for(let j = first_new; j < new_length; ++j) {
-        ms.push(newData.measurements[i][j]);
-      }
-      concatData.measurements.push(ms);
+    for(const measurement_name of Object.keys(oldData.measurements)) {
+      for(let i = 0; i < oldData.measurements[measurement_name].length; ++i) {
+        const ms = [];
+        for(let j = first_old; j < old_length; ++j) {
+          ms.push(oldData.measurements[measurement_name][i][j]);
+        }
+        for(let j = first_new; j < new_length; ++j) {
+          ms.push(newData.measurements[measurement_name][i][j]);
+        }
+        if(!concatData.measurements[measurement_name]) {
+          concatData.measurements[measurement_name] = [];
+        }
+        concatData.measurements[measurement_name].push(ms);
+      }  
     }
     setRawData(concatData);
     setNewData(null);
@@ -357,8 +362,8 @@ function App() {
     concatData(rawData, newData);
   }, [newData]);
 
-  function transformValuesToList(data, selectedTimestamp, visualization) {
-    const measurements = data.measurements;
+  function transformValuesToList(data, selectedTimestamp, visualization, measurement) {
+    const measurements = data.measurements[measurement.name];
     const res = [];
     for(let i = 0; i < measurements.length; ++i) {
       const measurement = measurements[i];
@@ -374,8 +379,8 @@ function App() {
   function gridDensity(grid_index) {
     if(!rawData.measurements)
       return 0;
-    const measurement = rawData.measurements[grid_index];
-    const value = measurement[selectedTimestamp];
+    const m = rawData.measurements[measurement.name][grid_index];
+    const value = m[selectedTimestamp];
     return formatDensity(calcDensity(value, grid[grid_index].properties.unusable_area));
   }
 
@@ -416,11 +421,11 @@ function App() {
     return [color.r, color.g, color.b, 100];
   };
 
-  function transformCumValuesToList(data, visualization) {
+  function transformCumValuesToList(data, visualization, measurement) {
     let squares = selectedSquares;
     if(selectedSquares.length === 0) {
       squares = [];
-      for(let i = 0; i < data.measurements.length; ++i)
+      for(let i = 0; i < data.measurements[measurement.name].length; ++i)
         squares.push(i);
     }
 
@@ -430,7 +435,7 @@ function App() {
     }
     let totalUsableArea = 0;
     for(const square of squares) {
-      const squareMeasurements = data.measurements[square];
+      const squareMeasurements = data.measurements[measurement.name][square];
       totalUsableArea += 200 * 200 - grid[square].properties.unusable_area;
       for(let i = 0; i < squareMeasurements.length; ++i) {
         const squareMeasurement = squareMeasurements[i] ? squareMeasurements[i] : 0;
@@ -454,11 +459,11 @@ function App() {
   function tooltip(index) {
     let html = "";
     if(visualization == "absolute") {
-      html = `<span><b>${values[index]}</b> devices</span>`
+      html = `<span><b>${values[index]}</b> ${measurement.unit}</span>`
     } else if(visualization == "density") {
-      html = `<span><b>${gridDensity(index)}</b> devices/m<sup>2</sup></span>`
+      html = `<span><b>${gridDensity(index)}</b> ${measurement.unit}/m<sup>2</sup></span>`
     } else {
-      html = `<span><b>${values[index]}</b> devices<br /><b>${gridDensity(index)}</b> devices/m<sup>2</sup></span>`
+      html = `<span><b>${values[index]}</b> ${measurement.unit}<br /><b>${gridDensity(index)}</b> ${measurement.unit}/m<sup>2</sup></span>`
     }
     return {html};
   }
@@ -507,8 +512,8 @@ function App() {
 
   function changeCumValues() {
     if(rawData.measurements) {
-      setCumValues(transformCumValuesToList(rawData, "absolute"));
-      setCumDensityValues(transformCumValuesToList(rawData, "density"));
+      setCumValues(transformCumValuesToList(rawData, "absolute", measurement));
+      setCumDensityValues(transformCumValuesToList(rawData, "density", measurement));
     }
   }
 
@@ -548,6 +553,13 @@ function App() {
     }
   }
 
+  function changeMeasurement(e) {
+    const m = e.target.value;
+    setMeasurement(m);
+    setValues(transformValuesToList(rawData, selectedTimestamp, visualization, m));
+    changeCumValues();
+  }
+
   return (
     <div>
       <StatusPane status={status} />
@@ -558,6 +570,11 @@ function App() {
               <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
               <MenuItem value="density" key="density">Density of devices</MenuItem>
               <MenuItem value="both" key="both">Number + density of devices</MenuItem>
+            </TextField>
+            <TextField select label="Measurement" sx={{width: 100}} value={measurement} onChange={changeMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
+              {measurements.map(m => (
+                <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
+              ))}
             </TextField>
             <IconButtonWithTooltip tooltip="Play animation" iconComponent={PlayArrowIcon} />
             <IconButtonWithTooltip tooltip="Go to previous critical point" iconComponent={SkipPreviousIcon} />
@@ -584,13 +601,6 @@ function App() {
                 <MUITooltip title="Interval defines the time window that will be used to aggregate and average the data">
                   <HelpIcon />
                 </MUITooltip>
-              </span>
-              <span style={{width: "247px", textAlign: "right"}}>
-                <TextField select label="Measurement" sx={{width: 100}} value={measurement} onChange={change(setMeasurement)} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
-                  {measurements.map(m => (
-                    <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
-                  ))}
-                </TextField>
               </span>
             </Stack>
             <div style={{position: "relative", width: "100%", textAlign: "center"}}>
@@ -631,7 +641,7 @@ function App() {
               getPosition: s => center(s).geometry.coordinates,
               getColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 139, 100],
               updateTriggers: {
-                getColor: [visualization],
+                getColor: [visualization, values],
                 getElevation: [visualization, values]
               }
             })]}

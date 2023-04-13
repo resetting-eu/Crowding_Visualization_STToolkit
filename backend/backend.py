@@ -19,7 +19,7 @@ with open("mock_data.json") as f:
 @app.route("/data_range")
 def data_range():
     args = request.args
-    return jsonify(get_values_range(args.get("start"), args.get("end"), args.get("every"), args.get("measurement")))
+    return jsonify(get_values_range(args.get("start"), args.get("end"), args.get("every")))
 
 @app.route("/data_range_local")
 def data_range_local():
@@ -46,32 +46,38 @@ def grid_local():
 
 debug = True
 
+measurement_names = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "E1", "E2", "E3", "E4", "E5", "E7", "E8", "E9", "E10"]
+filter_expression = " or ".join(map(lambda m: 'r["_field"] == "' + m + '"', measurement_names))
+
 query_range = 'from(bucket: "VodafoneLxData")\
   |> range(start: _start, stop: _end)\
-  |> filter(fn: (r) => r["_field"] == _measurement)\
+  |> filter(fn: (r) => ' + filter_expression + ')\
   |> aggregateWindow(every: _every, fn: mean, createEmpty: false)'
 query_range_no_aggregate = 'from(bucket: "VodafoneLxData")\
   |> range(start: _start, stop: _end)\
-  |> filter(fn: (r) => r["_field"] == _measurement)'
+  |> filter(fn: (r) => ' + filter_expression + ')'
 
-def get_values_range(start, end, every, measurement, aggregate=True):
+def get_values_range(start, end, every, aggregate=True):
     with influxdb_client.InfluxDBClient(url=config["INFLUXDB_URL"], token=config["INFLUXDB_TOKEN"], org=config["INFLUXDB_ORG"], debug=debug) as client:
         query_api = client.query_api()
         # TODO usar bind parameters em vez de espetar os params diretamente na query string
         #tables = query_api.query(query_range, params={"_start": start, "_end": end, "_every": every})
         query_str = query_range if aggregate else query_range_no_aggregate
-        query_str = query_str.replace("_start", start).replace("_end", end).replace("_every", every).replace("_measurement", '"' + measurement + '"')
+        query_str = query_str.replace("_start", start).replace("_end", end).replace("_every", every)
         tables = query_api.query(query_str)
         timestamps = set()
-        measurements = []
-        for _ in range(3743): # TODO - replace magic number with db response length
-            measurements.append([])
+        measurements = {}
+        for mn in measurement_names:
+            measurements[mn] = []
+            for _ in range(3743): # TODO - replace magic number with db response length
+                measurements[mn].append([])
         for table in tables:
             for record in table.records:
                 timestamp = record.row[4].isoformat().replace("+00:00", "Z")
                 timestamps.add(timestamp)
                 index = int(record.row[7]) - 1
-                m = measurements[index]
+                mn = record.row[6]
+                m = measurements[mn][index]
                 m.append(round(record.row[5]))
     sorted_timestamps = sorted(timestamps)
     return {"timestamps": sorted_timestamps, "measurements": measurements}
@@ -114,11 +120,11 @@ def mock_stream():
             start = last_dt + INCREMENT
             end = current_dt + datetime.timedelta(minutes=1)
         else:
-            return jsonify({"timestamps": [], "measurements": []})
+            return jsonify({"timestamps": [], "measurements": None})
     else:
         start = current_dt - INITIAL_BUFFER_TIMEDELTA
         end = current_dt + datetime.timedelta(minutes=1)    
-    return jsonify(get_values_range(start.isoformat(), end.isoformat(), "5m", "C1", False))
+    return jsonify(get_values_range(start.isoformat(), end.isoformat(), "5m", False))
 
 @app.route("/mock_stream_local")
 def mock_stream_local():
@@ -130,8 +136,10 @@ def mock_stream_local():
             first_index = last_index - 1
     else:
         first_index = 0
-    measurements = []
-    for measurement in LOCAL_DATA["measurements"]:
-        measurements.append(measurement[first_index+1:last_index+1])
+    measurements = {}
+    for mn in LOCAL_DATA["measurements"]:
+        measurements[mn] = []
+        for measurement in LOCAL_DATA["measurements"][mn]:
+            measurements[mn].append(measurement[first_index+1:last_index+1])
     timestamps = LOCAL_DATA["timestamps"][first_index+1:last_index+1]
     return jsonify({"measurements": measurements, "timestamps": timestamps})
