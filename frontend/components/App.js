@@ -596,10 +596,10 @@ function App() {
       <Toolbar freeze={freezeToolbar} panes={[
         {title: "Visualization options", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
-            <TextField select value={visualization} sx={{width: 253}} label="Visualization" onChange={changeVisualization}>
-              <MenuItem value="absolute" key="absolute">Number of devices</MenuItem>
-              <MenuItem value="density" key="density">Density of devices</MenuItem>
-              <MenuItem value="both" key="both">Number + density of devices</MenuItem>
+            <TextField select value={visualization} sx={{width: 300}} onChange={changeVisualization}>
+              <MenuItem value="absolute" key="absolute">Absolute</MenuItem>
+              <MenuItem value="density" key="density">Density</MenuItem>
+              <MenuItem value="both" key="both">Absolute (height) + Density (color)</MenuItem>
             </TextField>
             <TextField select label="Measurement" sx={{width: 100}} value={measurement} onChange={changeMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
               {measurements.map(m => (
