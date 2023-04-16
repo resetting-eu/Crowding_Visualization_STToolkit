@@ -33,6 +33,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+import MapboxDrawStyles from './MapboxDrawStyles';
 
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
@@ -60,7 +61,8 @@ function DrawControl({onFinish}) {
       polygon: false,
       trash: false
     },
-    defaultMode: "draw_polygon"
+    defaultMode: "draw_polygon",
+    styles: MapboxDrawStyles
   });
   const drawCreateCallback = ({features}) => {
     console.assert(features.length === 1);
