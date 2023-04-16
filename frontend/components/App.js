@@ -100,26 +100,26 @@ const style = {
 const emptyGeoJson = [];
 
 const measurements = [
-  {name: "C1", description: "Number of distinct devices in square", unit: "devices"},
-  {name: "C2", description: "Number of distinct roaming devices in square", unit: "devices"},
-  {name: "C3", description: "Number of distinct devices that stayed in square", unit: "devices"},
-  {name: "C4", description: "Number of distinct roaming devices that stayed in square", unit: "devices"},
-  {name: "C5", description: "Number of distinct devices entering the square", unit: "devices"},
-  {name: "C6", description: "Number of distinct devices exiting the square", unit: "devices"},
-  {name: "C7", description: "Number of distinct roaming devices entering the square", unit: "devices"},
-  {name: "C8", description: "Number of distinct roaming devices exiting the square", unit: "devices"},
-  {name: "C9", description: "Number of distinct devices in square with active data connection", unit: "devices"},
-  {name: "C10", description: "Number of distinct roaming devices in square with active data connection", unit: "devices"},
-  {name: "C11", description: "Number of voice calls originating from square", unit: "calls"},
-  {name: "E1", description: "Number of voice calls terminating in square", unit: "calls"},
-  {name: "E2", description: "Average rate of downstream in square", unit: "rate"},
-  {name: "E3", description: "Average rate of upstream in square", unit: "rate"},
-  {name: "E4", description: "Peak rate of downstream in square", unit: "rate"},
-  {name: "E5", description: "Peak rate of upstream in square", unit: "rate"},
-  {name: "E7", description: "Minimum permanence duration inside of square", unit: "minutes"},
-  {name: "E8", description: "Average permanence duration inside of square", unit: "minutes"},
-  {name: "E9", description: "Maximum permanence duration inside of square", unit: "minutes"},
-  {name: "E10", description: "Number of devices that share connection in square", unit: "devices"}
+  {name: "C1", description: "Number of distinct devices", unit: "devices"},
+  {name: "C2", description: "Number of distinct roaming devices", unit: "devices"},
+  {name: "C3", description: "Number of distinct devices that stayed in cell", unit: "devices"},
+  {name: "C4", description: "Number of distinct roaming devices that stayed in cell", unit: "devices"},
+  {name: "C5", description: "Number of distinct devices entering the cell", unit: "devices"},
+  {name: "C6", description: "Number of distinct devices exiting the cell", unit: "devices"},
+  {name: "C7", description: "Number of distinct roaming devices entering the cell", unit: "devices"},
+  {name: "C8", description: "Number of distinct roaming devices exiting the cell", unit: "devices"},
+  {name: "C9", description: "Number of distinct devices with active data connection", unit: "devices"},
+  {name: "C10", description: "Number of distinct roaming devices with active data connection", unit: "devices"},
+  {name: "C11", description: "Number of voice calls originating from cell", unit: "calls"},
+  {name: "E1", description: "Number of voice calls terminating in cell", unit: "calls"},
+  {name: "E2", description: "Average rate of downstream", unit: "rate"},
+  {name: "E3", description: "Average rate of upstream", unit: "rate"},
+  {name: "E4", description: "Peak rate of downstream", unit: "rate"},
+  {name: "E5", description: "Peak rate of upstream", unit: "rate"},
+  {name: "E7", description: "Minimum permanence duration", unit: "minutes"},
+  {name: "E8", description: "Average permanence duration", unit: "minutes"},
+  {name: "E9", description: "Maximum permanence duration", unit: "minutes"},
+  {name: "E10", description: "Number of devices that share connection", unit: "devices"}
 ];
 
 function DateTimeWidget(props) {
