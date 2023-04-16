@@ -25,6 +25,8 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ManageHistoryIcon from '@mui/icons-material/ManageHistory';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
+import Switch from '@mui/material/Switch';
+import Typography from '@mui/material/Typography';
 
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -418,7 +420,7 @@ function App() {
         g: Math.floor(lower.color.g * pctLower + upper.color.g * pctUpper),
         b: Math.floor(lower.color.b * pctLower + upper.color.b * pctUpper)
     };
-    return [color.r, color.g, color.b, 100];
+    return [color.r, color.g, color.b];
   };
 
   function transformCumValuesToList(data, visualization, measurement) {
@@ -560,6 +562,34 @@ function App() {
     changeCumValues();
   }
 
+  const [showData, setShowData] = useState(true);
+
+  const geoJsonLayer = new GeoJsonLayer({
+    id: "quadricula",
+    data: grid,
+    filled: true,
+    getLineWidth: 5,
+    getLineColor: [120, 120, 120, 255],
+    getFillColor: (_, info) => selectedSquares.includes(info.index) ? [138, 138, 0, 100] : [0, 0, 0, 0],
+    updateTriggers: {
+      getFillColor: [selectedSquares]
+    }
+  });
+  const prismLayer = new CustomMeshLayer({
+    id: "meshes",
+    data: grid,
+    mesh: CUBE_MESH,
+    pickable: true,
+    getElevation: (_, info) => visualization === "density" ? values[info.index] * 15000 : values[info.index],
+    getPosition: s => center(s).geometry.coordinates,
+    getColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 100],
+    updateTriggers: {
+      getColor: [visualization, values],
+      getElevation: [visualization, values]
+    }
+  });
+  const layers = showData ? [geoJsonLayer, prismLayer] : [geoJsonLayer];
+
   return (
     <div>
       <StatusPane status={status} />
@@ -611,8 +641,13 @@ function App() {
           <p>Not implemented yet</p>
         }]} />
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-        <Stack direction="row" spacing={10}>
+        <Stack direction="row" spacing={2}>
           <CustomSlider value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"}  colors={sliderColors} live={currentStatusIs(statuses.viewingLive)}/>
+          <span style={{flexShrink: 0}}>
+            <Typography component="span">Hide</Typography>
+            <Switch checked={showData} onChange={e => setShowData(e.target.checked)}/>
+            <Typography component="span">Show</Typography>
+          </span>
           <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive)}>Live</Button>
         </Stack>
       </div>
@@ -620,31 +655,7 @@ function App() {
         <Map mapLib={maplibregl} mapStyle={style} initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
           onClick={(e) => !drawing && toggleSquare(e.lngLat)}
           onDblClick={(e) => e.preventDefault()}>
-          <DeckGLOverlay layers={
-            [new GeoJsonLayer({
-              id: "quadricula",
-              data: grid,
-              filled: true,
-              getLineWidth: 5,
-              getLineColor: [120, 120, 120, 255],
-              getFillColor: (_, info) => selectedSquares.includes(info.index) ? [138, 138, 0, 100] : [0, 0, 0, 0],
-              updateTriggers: {
-                getFillColor: [selectedSquares]
-              }
-            }),
-            new CustomMeshLayer({
-              id: "meshes",
-              data: grid,
-              mesh: CUBE_MESH,
-              pickable: true,
-              getElevation: (_, info) => visualization === "density" ? values[info.index] * 15000 : values[info.index],
-              getPosition: s => center(s).geometry.coordinates,
-              getColor: (_, info) => visualization == "both" ? getColorForPercentage(gridDensity(info.index)) : [0, 0, 139, 100],
-              updateTriggers: {
-                getColor: [visualization, values],
-                getElevation: [visualization, values]
-              }
-            })]}
+          <DeckGLOverlay layers={layers}
             getTooltip={(o) => o.picked && tooltip(o.index)} />
           {/* <NavigationControl /> */}
           {drawControlOn && 

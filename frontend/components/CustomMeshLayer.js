@@ -49,7 +49,7 @@ export default class CustomMeshLayer extends SimpleMeshLayer {
       vTexCoord = texCoords;
       cameraPosition = project_uCameraPosition;
       vColor = vec4(colors * instanceColors.rgb, instanceColors.a);
-      vec3 adjustedPositions = positions * vec3(17.6, 17.6, 1.0);
+      vec3 adjustedPositions = positions * vec3(12.0, 12.0, 1.0);
       if(positions.z > 0.0)
         adjustedPositions.z = elevations;
       vec3 pos = (instanceModelMatrix * adjustedPositions) * sizeScale + instanceTranslation;
