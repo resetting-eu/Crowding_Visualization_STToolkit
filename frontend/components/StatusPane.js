@@ -10,9 +10,11 @@ function StatusPane({status}) {
     setStatusToDisplay(status);
     if(timeoutID.current)
       clearInterval(timeoutID.current);
-    timeoutID.current = setTimeout(() => {
-      setStatusToDisplay(null);
-    }, 5000);
+    if(!status.loading) {
+      timeoutID.current = setTimeout(() => {
+        setStatusToDisplay(null);
+      }, 5000);
+    }
   }, [status]);
 
   return (

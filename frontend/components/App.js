@@ -163,9 +163,9 @@ const HISTORY_URL = LOCAL_INFLUXDB ? "http://localhost:5000/data_range_local" : 
 const LIVE_URL = LOCAL_INFLUXDB ? "http://localhost:5000/mock_stream_local" : "http://localhost:5000/mock_stream";
 
 const statuses = {
-  loadingHistory: {caption: "Loading historical data..."},
+  loadingHistory: {caption: "Loading historical data...", loading: true},
   viewingHistory: {caption: "Viewing historical data"},
-  loadingLive: {caption: "Loading live data..."},
+  loadingLive: {caption: "Loading live data...", loading: true},
   viewingLive: {caption: "Viewing live data"},
   viewingLiveNotTracking: {caption: "Not automatically tracking latest moment"},
   viewingLivePaused: {caption: "Live update paused (buffer limit reached)"},
