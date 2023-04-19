@@ -67,3 +67,27 @@ export function minFromArray(a) {
       res = x;
   return res;
 }
+
+export function nextLocalMaxIndex(a, prevMax) {
+  for (let i = 0; i < a.length; i++) {
+    if ((i === 0 || a[i] > a[i - 1]) && (i === a.length - 1 || a[i] > a[i + 1])) {
+      if (prevMax === null || i > prevMax) {
+	      return i;
+      }
+    }
+  }
+  
+  return null;
+}
+
+export function prevLocalMaxIndex(a, nextMax) {
+  for (let i = a.length - 1; i >= 0; i--) {
+    if ((i === 0 || a[i] > a[i - 1]) && (i === a.length - 1 || a[i] > a[i + 1])) {
+      if (nextMax === null || i < nextMax) {
+	      return i;
+      }
+    }
+  }
+  
+  return null;
+}

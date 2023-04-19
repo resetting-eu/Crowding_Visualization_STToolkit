@@ -37,7 +37,7 @@ import MapboxDrawStyles from './MapboxDrawStyles';
 
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
-import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray } from './Utils';
+import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import LineChart from './LineChart';
@@ -592,6 +592,18 @@ function App() {
   });
   const layers = showData ? [geoJsonLayer, prismLayer] : [geoJsonLayer];
 
+  function fastBackward() {
+    const prevMax = prevLocalMaxIndex(cumValues, selectedTimestamp);
+    if(prevMax !== null)
+      sliderChange(null, prevMax);
+  }
+
+  function fastForward() {
+    const nextMax = nextLocalMaxIndex(cumValues, selectedTimestamp);
+    if(nextMax !== null)
+      sliderChange(null, nextMax);
+  }
+
   return (
     <div>
       <StatusPane status={status} />
@@ -609,8 +621,8 @@ function App() {
               ))}
             </TextField>
             <IconButtonWithTooltip tooltip="Play animation" iconComponent={PlayArrowIcon} />
-            <IconButtonWithTooltip tooltip="Go to previous critical point" iconComponent={SkipPreviousIcon} />
-            <IconButtonWithTooltip tooltip="Go to next critical point" iconComponent={SkipNextIcon} />
+            <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} />
+            <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} />
             <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
             <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
           </Stack>},
@@ -646,7 +658,6 @@ function App() {
         <Stack direction="row" spacing={2}>
           <CustomSlider value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"}  colors={sliderColors} live={currentStatusIs(statuses.viewingLive)}/>
           <span style={{flexShrink: 0}}>
-            <Typography component="span">Hide</Typography>
             <Switch checked={showData} onChange={e => setShowData(e.target.checked)}/>
             <Typography component="span">Show</Typography>
           </span>
