@@ -12,7 +12,7 @@ import Stack from '@mui/material/Stack';
 import { Tooltip as MUITooltip } from '@mui/material';
 import HelpIcon from '@mui/icons-material/Help';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
+import StopIcon from '@mui/icons-material/Stop';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import EditIcon from '@mui/icons-material/Edit';
@@ -169,6 +169,7 @@ const statuses = {
   viewingLive: {caption: "Viewing live data"},
   viewingLiveNotTracking: {caption: "Not automatically tracking latest moment"},
   viewingLivePaused: {caption: "Live update paused (buffer limit reached)"},
+  animating: {},
   noData: {caption: "No data loaded"}
 }
 
@@ -319,7 +320,38 @@ function App() {
 
   const MAX_LIVE_BUFFER_SIZE = 20;
 
+  function calcFirstNewTimestamp(oldTimestamps, newTimestamps) {
+    for(let i = 0; i < newTimestamps.length; ++i) {
+      if(!oldTimestamps.includes(newTimestamps[i])) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  function calcNewDataOnly(oldData, newData) {
+    const firstNewTimestamp = calcFirstNewTimestamp(oldData.timestamps, newData.timestamps);
+    if(firstNewTimestamp === 0)
+      return newData;
+    if(firstNewTimestamp === null)
+      return {timestamps: [], measurements: {}};
+    
+    const timestamps = newData.timestamps.slice(firstNewTimestamp);
+    
+    const measurements = {};
+    for(const measurement in newData.measurements) {
+      measurements[measurement] = [];
+      for(let i = 0; i < newData.measurements[measurement].length; ++i) {
+        measurements[measurement].push(newData.measurements[measurement][i].slice(firstNewTimestamp));
+      }
+    }
+
+    return {timestamps, measurements};
+  }
+
   function concatData(oldData, newData) {
+    newData = calcNewDataOnly(oldData, newData);
+
     // Do not exceed max buffer size. Discard older data if necessary
     const old_length = oldData.timestamps.length;
     const new_length = newData.timestamps.length;
@@ -604,9 +636,50 @@ function App() {
       sliderChange(null, nextMax);
   }
 
+  const selectedTimestampBeforeAnimation = useRef(null);
+  const selectedTimestampAnimation = useRef(null);
+  const animationInterval = useRef(null);
+
+  function toggleAnimate() {
+    if(currentStatusIs(statuses.noData) || statusRef.current.loading)
+      return;
+
+    if(!currentStatusIs(statuses.animating)) { // animate
+      selectedTimestampBeforeAnimation.current = selectedTimestamp;
+      changeSelectedTimestamp(0);
+      selectedTimestampAnimation.current = 0;
+      changeStatus(statuses.animating);
+      animationInterval.current = setInterval(() => {
+        selectedTimestampAnimation.current++;
+        if(selectedTimestampAnimation.current < rawData.timestamps.length) {
+          changeSelectedTimestamp(selectedTimestampAnimation.current);
+        } else {
+          clearInterval(animationInterval.current);
+          changeSelectedTimestamp(selectedTimestampBeforeAnimation.current);
+          changeStatus(previousStatusRef.current);
+        }
+      }, 500);  
+    } else { // stop animation
+      clearInterval(animationInterval.current);
+      if(previousStatusIs(statuses.viewingLive) && selectedTimestampAnimation.current < rawData.timestamps.length - 1) {
+        changeStatus(statuses.viewingLiveNotTracking);
+      } else {
+        changeStatus(previousStatusRef.current);
+      }
+    }
+  }
+
+  const [animateIconComponent, setAnimateIconComponent] = useState(PlayArrowIcon);
+  const [fastForwardBackwardDisabled, setFastForwardBackwardDisabled] = useState(false);
+
+  useEffect(() => {
+    setAnimateIconComponent(currentStatusIs(statuses.animating) ? StopIcon : PlayArrowIcon);
+    setFastForwardBackwardDisabled(currentStatusIs(statuses.animating));
+  }, [status]);
+
   return (
     <div>
-      <StatusPane status={status} />
+      {status.caption && <StatusPane status={status} />}
       <Toolbar freeze={freezeToolbar} panes={[
         {title: "Visualization options", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
@@ -620,9 +693,9 @@ function App() {
                 <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
               ))}
             </TextField>
-            <IconButtonWithTooltip tooltip="Play animation" iconComponent={PlayArrowIcon} />
-            <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} />
-            <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} />
+            <IconButtonWithTooltip tooltip="Play animation" onClick={toggleAnimate} iconComponent={animateIconComponent} />
+            <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={fastForwardBackwardDisabled} />
+            <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} disabled={fastForwardBackwardDisabled} />
             <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
             <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
           </Stack>},
