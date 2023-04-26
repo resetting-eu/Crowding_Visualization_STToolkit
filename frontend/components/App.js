@@ -284,7 +284,7 @@ function App() {
       return;
 
     setValues(transformValuesToList(rawData, selectedTimestamp, visualization, measurement));
-    changeCumValues();
+    changeCumValues(measurement);
     lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
     if(currentStatusIs(statuses.viewingLive))
       changeSelectedTimestamp(rawData.timestamps.length - 1);
@@ -546,14 +546,14 @@ function App() {
     }
   }
 
-  function changeCumValues() {
+  function changeCumValues(measurement) {
     if(rawData.measurements) {
       setCumValues(transformCumValuesToList(rawData, "absolute", measurement));
       setCumDensityValues(transformCumValuesToList(rawData, "density", measurement));
     }
   }
 
-  useEffect(() => changeCumValues(), [selectedSquares]);
+  useEffect(() => changeCumValues(measurement), [selectedSquares]);
 
   const arrForColors = visualization === "density" ? cumDensityValues : cumValues;
   const maxCumValue = maxFromArray(arrForColors);
@@ -593,7 +593,7 @@ function App() {
     const m = e.target.value;
     setMeasurement(m);
     setValues(transformValuesToList(rawData, selectedTimestamp, visualization, m));
-    changeCumValues();
+    changeCumValues(m);
   }
 
   const [showData, setShowData] = useState(true);
