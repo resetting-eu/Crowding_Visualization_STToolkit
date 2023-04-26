@@ -11,6 +11,14 @@ export default class CustomMeshLayer extends SimpleMeshLayer {
       elevations: {
         size: 1,
         accessor: 'getElevation',
+      },
+      topFaceColor: {
+        size: 3,
+        accessor: 'getTopFaceColor'
+      },
+      paintTopFace: {
+        size: 1,
+        accessor: 'getPaintTopFace'
       }
     });
   }
@@ -29,6 +37,8 @@ export default class CustomMeshLayer extends SimpleMeshLayer {
     in vec3 colors;
     in vec2 texCoords;
     in float elevations;
+    in vec3 topFaceColor;
+    in float paintTopFace;
     // Instance attributes
     in vec3 instancePositions;
     in vec3 instancePositions64Low;
@@ -48,7 +58,10 @@ export default class CustomMeshLayer extends SimpleMeshLayer {
       geometry.pickingColor = instancePickingColors;
       vTexCoord = texCoords;
       cameraPosition = project_uCameraPosition;
-      vColor = vec4(colors * instanceColors.rgb, instanceColors.a);
+      if(paintTopFace == 1.0 && normals.z == 1.0)
+        vColor = vec4(topFaceColor, 1.0);
+      else
+        vColor = vec4(colors * instanceColors.rgb, instanceColors.a);
       vec3 adjustedPositions = positions * vec3(12.0, 12.0, 1.0);
       if(positions.z > 0.0)
         adjustedPositions.z = elevations;
