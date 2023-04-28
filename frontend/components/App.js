@@ -37,7 +37,7 @@ import MapboxDrawStyles from './MapboxDrawStyles';
 
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
-import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex } from './Utils';
+import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import LineChart from './LineChart';
@@ -430,33 +430,6 @@ function App() {
     return density.toFixed(3);
   }
 
-  const percentColors = [
-    { pct: 0.0, color: { r: 0x00, g: 0xff, b: 0 } },
-    { pct: 0.05, color: { r: 0xff, g: 0xff, b: 0 } },
-    { pct: 0.1, color: { r: 0xff, g: 0x00, b: 0 } } ];
-
-  // https://stackoverflow.com/questions/7128675/from-green-to-red-color-depend-on-percentage
-  function getColorForPercentage(pct) {
-    let i;
-    for (i = 1; i < percentColors.length - 1; i++) {
-        if (pct < percentColors[i].pct) {
-            break;
-        }
-    }
-    let lower = percentColors[i - 1];
-    let upper = percentColors[i];
-    let range = upper.pct - lower.pct;
-    let rangePct = (pct - lower.pct) / range;
-    let pctLower = 1 - rangePct;
-    let pctUpper = rangePct;
-    let color = {
-        r: Math.floor(lower.color.r * pctLower + upper.color.r * pctUpper),
-        g: Math.floor(lower.color.g * pctLower + upper.color.g * pctUpper),
-        b: Math.floor(lower.color.b * pctLower + upper.color.b * pctUpper)
-    };
-    return [color.r, color.g, color.b];
-  };
-
   function transformCumValuesToList(data, visualization, measurement) {
     let squares = selectedSquares;
     if(selectedSquares.length === 0) {
@@ -562,7 +535,7 @@ function App() {
   for(const v of arrForColors) {
     // normalized value, between 0.0 and 0.1
     const nv = (v - minCumValue) / (maxCumValue - minCumValue) / 10;
-    const ca = getColorForPercentage(nv);
+    const ca = getRgbForPercentage(nv);
     const color = `rgba(${ca.join(",")})`;
     sliderColors.push(color);
   }
@@ -608,7 +581,7 @@ function App() {
 
   function calcPrismColor(index) {
     if(visualization === "both")
-      return getColorForPercentage(gridDensity(index));
+      return getRgbForPercentage(gridDensity(index));
     else
       return [0, 0, 100];
   }
@@ -634,7 +607,7 @@ function App() {
     getElevation: (_, info) => Math.min(calcElevation(info.index), prismSize.size),
     getPosition: s => center(s).geometry.coordinates,
     getColor: (_, info) => calcPrismColor(info.index),
-    getTopFaceColor: [255, 255, 255],
+    getTopFaceColor: [255, 0, 0],
     getPaintTopFace: (_, info) => values[info.index] > measurement.max ? 1.0 : 0.0,
     updateTriggers: {
       getColor: [visualization, values, prismSize],
