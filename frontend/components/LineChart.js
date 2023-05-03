@@ -33,6 +33,13 @@ function title(selectedSquaresNum) {
   }
 }
 
+// 0 points -> radius = 3
+// 100+ points -> radius = 1
+function pointRadius(numberOfPoints) {
+  const points = Math.min(numberOfPoints, 100);
+  return points * -0.02 + 3;
+}
+
 let registered = false; // set to true once chart js stuff is registered
 
 function LineChart({timestamps, cumValues, cumDensityValues, chartPointColor, selectedSquaresNum}) {
@@ -50,7 +57,7 @@ function LineChart({timestamps, cumValues, cumDensityValues, chartPointColor, se
 
   const data = {
     labels: timestamps ? timestamps.map(formatTimestamp) : [],
-    datasets: [{data: visualization === "absolute" ? cumValues : cumDensityValues, pointBackgroundColor: chartPointColor}]
+    datasets: [{data: visualization === "absolute" ? cumValues : cumDensityValues, pointBackgroundColor: chartPointColor, pointRadius: pointRadius(timestamps ? timestamps.length : 0)}]
   };
 
   const [registerables, setRegisterables] = useState(null);
