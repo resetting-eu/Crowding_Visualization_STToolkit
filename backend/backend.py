@@ -16,10 +16,19 @@ with open("mock_data.json") as f:
     LOCAL_DATA_STR = f.read()
     LOCAL_DATA = json.loads(LOCAL_DATA_STR)
 
+with open("lisbonParishesCells.json", encoding="utf-8") as f:
+    PARISHES_CELLS = json.loads(f.read())
+
+PARISHES_NAMES = list(map(lambda p: p["name"], PARISHES_CELLS))
+
+# "Belém,Ajuda" -> ["Belém", "Ajuda"]
+def commas_to_list(s):
+    return s.split(",") if s else ""
+
 @app.route("/data_range")
 def data_range():
     args = request.args
-    return jsonify(get_values_range(args.get("start"), args.get("end"), args.get("every")))
+    return jsonify(get_values_range(args.get("start"), args.get("end"), args.get("every"), True, commas_to_list(args.get("parishes"))))
 
 @app.route("/data_range_local")
 def data_range_local():
@@ -44,10 +53,34 @@ def grid_local():
     with open("grid_usable_areas_2.json") as f:
         return Response(f.read(), mimetype="application/json")
 
-debug = True
+@app.route("/parishes")
+def parishes():
+    return jsonify(PARISHES_NAMES)
+
+debug = False
 
 measurement_names = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "E1", "E2", "E3", "E4", "E5", "E7", "E8", "E9", "E10"]
 filter_expression = " or ".join(map(lambda m: 'r["_field"] == "' + m + '"', measurement_names))
+
+def parishes_expression(parishes):
+    s = set()
+    for parish_cells in PARISHES_CELLS:
+        if parish_cells["name"] in parishes:
+            for cell in parish_cells["cells"]:
+                s.add("^" + str(cell) + "$")
+    return "|".join(s)
+
+def query_range_str(start, end, every=None, parishes=None):
+    # TODO usar bind parameters em vez de espetar os params diretamente na query string
+    res = 'from(bucket: "VodafoneLxData")\
+        |> range(start: ' + start + ', stop: ' + end + ')\
+        |> filter(fn: (r) => (' + filter_expression + ')'
+    if parishes:
+        res += ' and r["_measurement"] =~ /' + parishes_expression(parishes) + '/'
+    res += ')'
+    if every:
+        res += '|> aggregateWindow(every: ' + every + ', fn: mean, createEmpty: false)'
+    return res
 
 query_range = 'from(bucket: "VodafoneLxData")\
   |> range(start: _start, stop: _end)\
@@ -57,13 +90,15 @@ query_range_no_aggregate = 'from(bucket: "VodafoneLxData")\
   |> range(start: _start, stop: _end)\
   |> filter(fn: (r) => ' + filter_expression + ')'
 
-def get_values_range(start, end, every, aggregate=True):
+def get_values_range(start, end, every, aggregate=True, parishes=None):
     with influxdb_client.InfluxDBClient(url=config["INFLUXDB_URL"], token=config["INFLUXDB_TOKEN"], org=config["INFLUXDB_ORG"], debug=debug) as client:
         query_api = client.query_api()
         # TODO usar bind parameters em vez de espetar os params diretamente na query string
         #tables = query_api.query(query_range, params={"_start": start, "_end": end, "_every": every})
-        query_str = query_range if aggregate else query_range_no_aggregate
-        query_str = query_str.replace("_start", start).replace("_end", end).replace("_every", every)
+        if not aggregate:
+            every = None
+        query_str = query_range_str(start, end, every, parishes)
+        print(query_str)
         tables = query_api.query(query_str)
         timestamps = set()
         measurements = {}

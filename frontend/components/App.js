@@ -18,6 +18,7 @@ import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import IconButton from '@mui/material/IconButton';
+import MapIcon from '@mui/icons-material/Map';
 import TextField from '@mui/material/TextField';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -27,6 +28,7 @@ import ManageHistoryIcon from '@mui/icons-material/ManageHistory';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
+import Autocomplete from '@mui/material/Autocomplete';
 
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -42,7 +44,7 @@ import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import LineChart from './LineChart';
 import CustomSlider from './CustomSlider';
-import { LOCAL_INFLUXDB, LOCAL_MONGODB, PRISM_SIZES, DEFAULT_PRISM_SIZE } from './Config';
+import { LOCAL_INFLUXDB, GRID_URL, HISTORY_URL, LIVE_URL, PRISM_SIZES, DEFAULT_PRISM_SIZE, PARISHES_URL } from './Config';
 import { CUBE_MESH } from './CubeMesh';
 import CustomMeshLayer from './CustomMeshLayer';
 
@@ -158,9 +160,6 @@ function IconButtonWithTooltip(props) {
   );
 }
 
-const GRID_URL = LOCAL_MONGODB ? "http://localhost:5000/grid_local" : "http://localhost:5000/grid";
-const HISTORY_URL = LOCAL_INFLUXDB ? "http://localhost:5000/data_range_local" : "http://localhost:5000/data_range";
-const LIVE_URL = LOCAL_INFLUXDB ? "http://localhost:5000/mock_stream_local" : "http://localhost:5000/mock_stream";
 
 const statuses = {
   loadingHistory: {caption: "Loading historical data...", loading: true},
@@ -175,6 +174,8 @@ const statuses = {
 
 function App() {
   const [grid, setGrid] = useState(emptyGeoJson);
+  const [parishes, setParishes] = useState([]);
+  const [selectedParishes, setSelectedParishes] = useState([]);
   const [rawData, setRawData] = useState([]);
   const [values, setValues] = useState([]);
   const [cumValues, setCumValues] = useState([]);
@@ -186,8 +187,10 @@ function App() {
       .then(data => {
         data.sort((a, b) => a.properties.id - b.properties.id);
         setGrid(data);
-        loadLive();
       });
+    fetch(PARISHES_URL)
+      .then(r => r.json())
+      .then(ps => setParishes(ps));
   }, []);
 
   const [start, setStart] = useState("2022-08-01T00:00:00Z");
@@ -251,7 +254,7 @@ function App() {
   function load() {
     changeStatus(statuses.loadingHistory);
     const url = HISTORY_URL + "?start=" + start + "&end=" + end
-      + "&every=" + everyNumber + everyUnit;
+      + "&every=" + everyNumber + everyUnit + "&parishes=" + selectedParishes.join(",");
     fetch(url)
       .then(r => r.json())
       .then(data => {
@@ -555,7 +558,7 @@ function App() {
   }
 
   function liveButtonOnClick() {
-    if(currentStatusIs(statuses.viewingHistory)) {
+    if(currentStatusIs(statuses.viewingHistory) || currentStatusIs(statuses.noData)) {
       loadLive();
     } else if(currentStatusIs(statuses.viewingLiveNotTracking) || currentStatusIs(statuses.viewingLivePaused)) {
       changeStatus(statuses.viewingLive);
@@ -674,6 +677,11 @@ function App() {
     <div>
       {status.caption && <StatusPane status={status} />}
       <Toolbar freeze={freezeToolbar} panes={[
+        {title: "Select parishes", icon: <MapIcon/>, content:
+          <>
+            <Autocomplete multiple options={parishes} value={selectedParishes} onChange={(_, p) => setSelectedParishes(p)} renderInput={(params) => (<TextField {...params}/>)} />
+            <Typography>Only data from the selected parishes will be loaded</Typography>
+          </>},
         {title: "Visualization options", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
             <TextField select value={visualization} sx={{width: 300}} onChange={changeVisualization}>
