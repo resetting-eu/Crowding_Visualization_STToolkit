@@ -1,6 +1,7 @@
-import { Chart as ChartJS } from "chart.js";
+import { Chart as ChartJS, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Title } from "chart.js";
+import zoomPlugin from 'chartjs-plugin-zoom';
 import { Line } from "react-chartjs-2";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Fab from '@mui/material/Fab';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import Switch from '@mui/material/Switch';
@@ -8,16 +9,8 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import { formatTimestamp, abbreviateValue } from "./Utils";
-import dynamic from 'next/dynamic'
 
-// Importing zoomPlugin in this component gives an error (window is not defined)
-// A workaround is to use next's dynamic import to force the import to be client side
-// But the dynamic import is only for react components.
-// Therefore, another component was created that imports the offending dependency
-const ChartJsRegisterComponent = dynamic(
-  () => import('./ChartJsRegister'),
-  { ssr: false }
-)
+ChartJS.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Title, zoomPlugin);
 
 function abbreviateDensity(density) {
   return density.toFixed(2);
@@ -40,8 +33,6 @@ function pointRadius(numberOfPoints) {
   return points * -0.02 + 3;
 }
 
-let registered = false; // set to true once chart js stuff is registered
-
 function LineChart({timestamps, cumValues, cumDensityValues, chartPointColor, selectedSquaresNum}) {
   const [visible, setVisible] = useState(true);
   const [visualization, setVisualization] = useState("absolute");
@@ -60,44 +51,29 @@ function LineChart({timestamps, cumValues, cumDensityValues, chartPointColor, se
     datasets: [{data: visualization === "absolute" ? cumValues : cumDensityValues, pointBackgroundColor: chartPointColor, pointRadius: pointRadius(timestamps ? timestamps.length : 0)}]
   };
 
-  const [registerables, setRegisterables] = useState(null);
-  useEffect(() => {
-    if(!registered && registerables) {
-      ChartJS.register.apply(null, registerables);
-      console.log(ChartJS);
-      setTimeout(() => { // setTimeout to avoid rendering the chart before registration
-        registered = true;
-        setRegisterables(true); // force rerender to show chart
-      }, 0);
-    }
-  }, [registerables]);
-
   return (
-    <>
-      {!registerables && <ChartJsRegisterComponent setter={setRegisterables}/>}
-      {visible && registered ?
-        <div style={{position: "absolute", bottom: "0px", left: "0px", height: "240px", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-          <div style={{display: "flex", justifyContent: "space-between"}}>
-            <span>
-              <Typography component="span">Absolute</Typography>
-              <Switch size="small" checked={visualization === "density"} onChange={e => setVisualization(e.target.checked ? "density" : "absolute")} />
-              <Typography component="span">Density</Typography>
-            </span>
-            <span>
-              <IconButton onClick={() => setVisible(false)}>
-                <CloseIcon />
-              </IconButton>
-            </span>
-          </div>
-          <Line
-            data={data}
-            options={options} />
+    visible ?
+      <div style={{position: "absolute", bottom: "0px", left: "0px", height: "240px", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+        <div style={{display: "flex", justifyContent: "space-between"}}>
+          <span>
+            <Typography component="span">Absolute</Typography>
+            <Switch size="small" checked={visualization === "density"} onChange={e => setVisualization(e.target.checked ? "density" : "absolute")} />
+            <Typography component="span">Density</Typography>
+          </span>
+          <span>
+            <IconButton onClick={() => setVisible(false)}>
+              <CloseIcon />
+            </IconButton>
+          </span>
         </div>
-      :
-        <Fab sx={{position: "fixed", left: 0, bottom: 0}} onClick={() => setVisible(!visible)}>
-          <TimelineIcon/>
-        </Fab>}
-    </>
+        <Line
+          data={data}
+          options={options} />
+      </div>
+    :
+      <Fab sx={{position: "fixed", left: 0, bottom: 0}} onClick={() => setVisible(!visible)}>
+        <TimelineIcon/>
+      </Fab>
   );
 }
 

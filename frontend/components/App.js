@@ -42,11 +42,19 @@ import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
-import LineChart from './LineChart';
 import CustomSlider from './CustomSlider';
 import { LOCAL_INFLUXDB, GRID_URL, HISTORY_URL, LIVE_URL, PRISM_SIZES, DEFAULT_PRISM_SIZE, PARISHES_URL } from './Config';
 import { CUBE_MESH } from './CubeMesh';
 import CustomMeshLayer from './CustomMeshLayer';
+
+import dynamic from 'next/dynamic';
+
+// One of the modules imported by LineChart gives an error if imported normally ("window is not defined")
+// A workaround is to use next's dynamic import to force the component's code to be client side
+const LineChart = dynamic(
+  () => import('./LineChart'),
+  { ssr: false }
+);
 
 dayjs.extend(customParseFormat);
 
