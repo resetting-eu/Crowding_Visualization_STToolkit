@@ -25,11 +25,11 @@ function abbreviateDensity(density) {
 
 function title(selectedSquaresNum) {
   if(selectedSquaresNum > 1) {
-    return `Cumulative values for ${selectedSquaresNum} cells`;
+    return `Values for ${selectedSquaresNum} cells`;
   } else if(selectedSquaresNum === 1) {
-    return "Cumulative values for 1 cell";
+    return "Values for 1 cell";
   } else {
-    return "Cumulative values for all cells";
+    return "Values for all cells";
   }
 }
 
