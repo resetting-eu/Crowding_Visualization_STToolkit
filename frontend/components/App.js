@@ -49,6 +49,24 @@ import CustomMeshLayer from './CustomMeshLayer';
 
 import dynamic from 'next/dynamic';
 
+import {AmbientLight, PointLight, DirectionalLight, LightingEffect} from '@deck.gl/core';
+
+const ambientLight = new AmbientLight({
+  color: [255, 255, 255],
+  intensity: 1.0
+});
+const pointLight = new PointLight({
+  color: [255, 255, 255],
+  intensity: 2.0,
+  position: [-9.22502725720, 38.69209409900, 5000]
+});
+const directionalLight = new DirectionalLight({
+  color: [255, 255, 255],
+  intensity: 1.0,
+  direction: [0, 0, 500]
+});
+const lightingEffect = new LightingEffect({ambientLight, pointLight, directionalLight});
+
 // One of the modules imported by LineChart gives an error if imported normally ("window is not defined")
 // A workaround is to use next's dynamic import to force the component's code to be client side
 const LineChart = dynamic(
@@ -201,8 +219,8 @@ function App() {
       .then(ps => setParishes(ps));
   }, []);
 
-  const [start, setStart] = useState("2022-08-01T00:00:00Z");
-  const [end, setEnd] = useState("2022-08-02T00:00:00Z");
+  const [start, setStart] = useState("2022-06-01T00:00:00Z");
+  const [end, setEnd] = useState("2022-06-01T12:00:00Z");
   const [everyNumber, setEveryNumber] = useState("1");
   const [everyUnit, setEveryUnit] = useState("h");
 
@@ -620,6 +638,12 @@ function App() {
     getColor: (_, info) => calcPrismColor(info.index),
     getTopFaceColor: [255, 0, 0],
     getPaintTopFace: (_, info) => values[info.index] > measurement.max ? 1.0 : 0.0,
+    material: {
+      "ambient": 0.35,
+      "diffuse": 0.6,
+      "shininess": 32,
+      "specularColor": [30, 30, 30]
+    },
     updateTriggers: {
       getColor: [visualization, values, prismSize],
       getElevation: [visualization, values, prismSize],
@@ -755,7 +779,7 @@ function App() {
         <Map mapLib={maplibregl} mapStyle={style} initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
           onClick={(e) => !drawing && toggleSquare(e.lngLat)}
           onDblClick={(e) => e.preventDefault()}>
-          <DeckGLOverlay layers={layers}
+          <DeckGLOverlay layers={layers} effects={[lightingEffect]}
             getTooltip={(o) => o.picked && tooltip(o.index)} />
           {/* <NavigationControl /> */}
           {drawControlOn && 
