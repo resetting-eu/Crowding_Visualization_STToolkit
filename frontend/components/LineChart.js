@@ -42,7 +42,7 @@ function LineChart({timestamps, cumValues, cumDensityValues, chartPointColor, se
     interaction: {mode: "index", intersect: false},
     plugins: {
       title: {display: true, text: title(selectedSquaresNum)},
-      zoom: {pan: {enabled: true, mode: "x"}, zoom: {drag: {enabled: true}, mode: "x"}}
+      zoom: {pan: {enabled: true, mode: "x"}, zoom: {wheel: {enabled: true}, mode: "x"}}
     }
   };
 
