@@ -26,7 +26,6 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ManageHistoryIcon from '@mui/icons-material/ManageHistory';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
-import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import Autocomplete from '@mui/material/Autocomplete';
 
@@ -517,7 +516,7 @@ function App() {
       for(let i = 0; i < grid.length; ++i) {
         const s = grid[i];
         if(booleanIntersects(polygon, s)) {
-          squares.push(i);
+          squares.push(s.properties.id);
         }
       }
       const selectedSquaresWithDups = [...selectedSquares, ...squares];
@@ -535,7 +534,7 @@ function App() {
     let square = null;
     for(let i = 0; i < grid.length; ++i) {
       if(booleanContains(grid[i], p)) {
-        square = i;
+        square = grid[i].properties.id;
         break;
       }
     }
@@ -615,7 +614,14 @@ function App() {
       return [0, 0, 100];
   }
 
-  const [showData, setShowData] = useState(true);
+  const [showData, setShowData] = useState("all"); // "all" | "selected" | "none"
+
+  function getPosition(square) {
+    if(!square)
+      return null;
+    const show = showData === "all" || (showData === "selected" && selectedSquares.includes(square.properties.id));
+    return show ? center(square).geometry.coordinates : null;
+  }
 
   const geoJsonLayer = new GeoJsonLayer({
     id: "quadricula",
@@ -623,7 +629,7 @@ function App() {
     filled: true,
     getLineWidth: 5,
     getLineColor: [120, 120, 120, 255],
-    getFillColor: (_, info) => selectedSquares.includes(info.index) ? [138, 138, 0, 100] : [0, 0, 0, 0],
+    getFillColor: s => selectedSquares.includes(s.properties.id) ? [138, 138, 0, 100] : [0, 0, 0, 0],
     updateTriggers: {
       getFillColor: [selectedSquares]
     }
@@ -634,7 +640,7 @@ function App() {
     mesh: CUBE_MESH,
     pickable: true,
     getElevation: (_, info) => Math.min(calcElevation(info.index), prismSize.size),
-    getPosition: s => center(s).geometry.coordinates,
+    getPosition: getPosition,
     getColor: (_, info) => calcPrismColor(info.index),
     getTopFaceColor: [255, 0, 0],
     getPaintTopFace: (_, info) => values[info.index] > measurement.max ? 1.0 : 0.0,
@@ -647,10 +653,11 @@ function App() {
     updateTriggers: {
       getColor: [visualization, values, prismSize],
       getElevation: [visualization, values, prismSize],
-      getPaintTopFace: [visualization, values]
+      getPaintTopFace: [visualization, values],
+      getPosition: [showData, selectedSquares]
     }
   });
-  const layers = showData ? [geoJsonLayer, prismLayer] : [geoJsonLayer];
+  const layers = [geoJsonLayer, prismLayer];
 
   function fastBackward() {
     const prevMax = prevLocalMaxIndex(cumValues, selectedTimestamp);
@@ -768,10 +775,11 @@ function App() {
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Stack direction="row" spacing={2}>
           <CustomSlider value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"}  colors={sliderColors} live={currentStatusIs(statuses.viewingLive)}/>
-          <span style={{flexShrink: 0}}>
-            <Switch checked={showData} onChange={e => setShowData(e.target.checked)}/>
-            <Typography component="span">Show</Typography>
-          </span>
+          <TextField select value={showData} label="Show" onChange={change(setShowData)} size="small" sx={{width: 140}}>
+            <MenuItem value="all" key="all">All</MenuItem>
+            <MenuItem value="selected" key="selected">Selected</MenuItem>
+            <MenuItem value="none" key="none">None</MenuItem>
+          </TextField>
           <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive)}>Live</Button>
         </Stack>
       </div>
