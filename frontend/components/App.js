@@ -255,6 +255,8 @@ function App() {
         if(rawData.timestamps) {
           changeSelectedTimestamp(rawData.timestamps.length - 1);
         }
+      } else if(previousStatusIs(statuses.viewingLivePaused)) {
+        loadLive();
       } else {
         setNextTimeout();
       }
