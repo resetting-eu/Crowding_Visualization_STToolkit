@@ -616,8 +616,8 @@ function App() {
 
   const [showData, setShowData] = useState("all"); // "all" | "selected" | "none"
 
-  function getPosition(square) {
-    if(!square)
+  function getPosition(square, info) {
+    if(!square || values[info.index] === undefined)
       return null;
     const show = showData === "all" || (showData === "selected" && selectedSquares.includes(square.properties.id));
     return show ? center(square).geometry.coordinates : null;
@@ -654,7 +654,7 @@ function App() {
       getColor: [visualization, values, prismSize],
       getElevation: [visualization, values, prismSize],
       getPaintTopFace: [visualization, values],
-      getPosition: [showData, selectedSquares]
+      getPosition: [showData, selectedSquares, values]
     }
   });
   const layers = [geoJsonLayer, prismLayer];
