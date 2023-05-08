@@ -27,7 +27,9 @@ export function concatDataIndexes(old_length, new_length, max_buffer_size) {
 }
 
 export function abbreviateValue(value) {
-  if(value >= 10000)
+  if(value >= 1000000)
+    return value / 1000000 + "M";
+  else if(value >= 10000)
     return value / 1000 + "K";
   else
     return value;
