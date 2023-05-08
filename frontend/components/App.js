@@ -716,7 +716,7 @@ function App() {
 
   return (
     <div>
-      {status.caption && <StatusPane status={status} />}
+      <StatusPane status={status} />
       <Toolbar freeze={freezeToolbar} panes={[
         {title: "Select parishes", icon: <MapIcon/>, content:
           <>

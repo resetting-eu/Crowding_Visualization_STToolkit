@@ -17,8 +17,10 @@ function StatusPane({status}) {
     }
   }, [status]);
 
+  const show = statusToDisplay && statusToDisplay.caption;
+
   return (
-    statusToDisplay &&
+    show ?
     <div style={{position: "absolute", left: 0, top: "75px", width: "100%", textAlign: "center", zIndex: 100}}>
       <span style={{padding: "15px 20px",  borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Typography component="span">
@@ -26,6 +28,7 @@ function StatusPane({status}) {
         </Typography>
       </span>
     </div>
+    : null
   );
 }
 
