@@ -711,13 +711,9 @@ function App() {
     }
   }
 
-  const [animateIconComponent, setAnimateIconComponent] = useState(PlayArrowIcon);
-  const [fastForwardBackwardDisabled, setFastForwardBackwardDisabled] = useState(false);
-
-  useEffect(() => {
-    setAnimateIconComponent(currentStatusIs(statuses.animating) ? StopIcon : PlayArrowIcon);
-    setFastForwardBackwardDisabled(currentStatusIs(statuses.animating));
-  }, [status]);
+  const animating = currentStatusIs(statuses.animating);
+  const animateIconComponent = animating ? StopIcon : PlayArrowIcon;
+  const animateToggleButtonTooltip = animating ? "Stop animation" : "Play animation";
 
   return (
     <div>
@@ -745,9 +741,9 @@ function App() {
                 <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
               ))}
             </TextField>
-            <IconButtonWithTooltip tooltip={currentStatusIs(statuses.animating) ? "Stop animation" : "Play animation"} onClick={toggleAnimate} iconComponent={animateIconComponent} />
-            <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={fastForwardBackwardDisabled} />
-            <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} disabled={fastForwardBackwardDisabled} />
+            <IconButtonWithTooltip tooltip={animateToggleButtonTooltip} onClick={toggleAnimate} iconComponent={animateIconComponent} />
+            <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={animating} />
+            <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} disabled={animating} />
             <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
             <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
           </Stack>},
