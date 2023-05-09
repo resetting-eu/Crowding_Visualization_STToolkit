@@ -206,6 +206,8 @@ function App() {
   const [cumValues, setCumValues] = useState([]);
   const [cumDensityValues, setCumDensityValues] = useState([]);
 
+  const nonSelectedParishes = parishes.filter(p => !selectedParishes.includes(p));
+
   useEffect(() => {
     fetch(GRID_URL)
       .then(r => r.json())
@@ -721,7 +723,7 @@ function App() {
       <Toolbar freeze={freezeToolbar} panes={[
         {title: "Select parishes", icon: <MapIcon/>, content:
           <>
-            <Autocomplete multiple options={parishes} value={selectedParishes} onChange={(_, p) => setSelectedParishes(p)} renderInput={(params) => (<TextField {...params}/>)} />
+            <Autocomplete multiple options={nonSelectedParishes} value={selectedParishes} onChange={(_, p) => setSelectedParishes(p)} renderInput={(params) => (<TextField {...params}/>)} />
             <Typography>Only data from the selected parishes will be loaded</Typography>
           </>},
         {title: "Visualization options", icon: <SettingsIcon/>, content:
