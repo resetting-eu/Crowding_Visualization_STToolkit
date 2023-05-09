@@ -745,7 +745,7 @@ function App() {
                 <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
               ))}
             </TextField>
-            <IconButtonWithTooltip tooltip="Play animation" onClick={toggleAnimate} iconComponent={animateIconComponent} />
+            <IconButtonWithTooltip tooltip={currentStatusIs(statuses.animating) ? "Stop animation" : "Play animation"} onClick={toggleAnimate} iconComponent={animateIconComponent} />
             <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={fastForwardBackwardDisabled} />
             <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} disabled={fastForwardBackwardDisabled} />
             <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
