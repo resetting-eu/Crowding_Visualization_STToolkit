@@ -247,8 +247,8 @@ function App() {
     }
 
     previousStatusRef.current = statusRef.current;
-    setStatus(s);
     statusRef.current = s;
+    setStatus(s);
 
     if(currentStatusIs(statuses.viewingLive)) {
       if(previousStatusIs(statuses.viewingLiveNotTracking)) {
@@ -688,12 +688,12 @@ function App() {
       changeStatus(statuses.animating);
       animationInterval.current = setInterval(() => {
         selectedTimestampAnimation.current++;
-        if(selectedTimestampAnimation.current < rawData.timestamps.length) {
-          changeSelectedTimestamp(selectedTimestampAnimation.current);
-        } else {
+        if(selectedTimestampAnimation.current >= rawData.timestamps.length) {
           clearInterval(animationInterval.current);
           changeSelectedTimestamp(selectedTimestampBeforeAnimation.current);
           changeStatus(previousStatusRef.current);
+        } else {
+          changeSelectedTimestamp(selectedTimestampAnimation.current);
         }
       }, 500);  
     } else { // stop animation
