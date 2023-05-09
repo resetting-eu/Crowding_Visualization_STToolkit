@@ -261,6 +261,11 @@ function App() {
         setNextTimeout();
       }
     }
+    if(currentStatusIs(statuses.viewingLiveNotTracking)) {
+      if(previousStatusIs(statuses.animating)) {
+        setNextTimeout();
+      }
+    }
   }
 
   function statusEquals(s1, s2) {
