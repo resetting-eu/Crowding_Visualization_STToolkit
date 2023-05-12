@@ -48,23 +48,18 @@ import CustomMeshLayer from './CustomMeshLayer';
 
 import dynamic from 'next/dynamic';
 
-import {AmbientLight, PointLight, DirectionalLight, LightingEffect} from '@deck.gl/core';
+import {AmbientLight, DirectionalLight, LightingEffect} from '@deck.gl/core';
 
 const ambientLight = new AmbientLight({
   color: [255, 255, 255],
-  intensity: 1.0
-});
-const pointLight = new PointLight({
-  color: [255, 255, 255],
-  intensity: 2.0,
-  position: [-9.22502725720, 38.69209409900, 5000]
+  intensity: 2.0
 });
 const directionalLight = new DirectionalLight({
   color: [255, 255, 255],
   intensity: 1.0,
-  direction: [0, 0, 500]
+  direction: [0, -1, 0]
 });
-const lightingEffect = new LightingEffect({ambientLight, pointLight, directionalLight});
+const lightingEffect = new LightingEffect({ambientLight, directionalLight});
 
 // One of the modules imported by LineChart gives an error if imported normally ("window is not defined")
 // A workaround is to use next's dynamic import to force the component's code to be client side
@@ -657,7 +652,7 @@ function App() {
       "ambient": 0.35,
       "diffuse": 0.6,
       "shininess": 32,
-      "specularColor": [30, 30, 30]
+      "specularColor": [255, 255, 255]
     },
     updateTriggers: {
       getColor: [visualization, values, prismSize],
