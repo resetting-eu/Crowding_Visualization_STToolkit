@@ -200,6 +200,8 @@ function App() {
   const [values, setValues] = useState([]);
   const [cumValues, setCumValues] = useState([]);
   const [cumDensityValues, setCumDensityValues] = useState([]);
+  const [cumHueValues, setCumHueValues] = useState(null);
+  const [cumHueDensityValues, setCumHueDensityValues] = useState(null);
 
   const nonSelectedParishes = parishes.filter(p => !selectedParishes.includes(p));
 
@@ -222,11 +224,9 @@ function App() {
 
   const [selectedTimestamp, setSelectedTimestamp] = useState(0);
 
-  const [visualization, setVisualization] = useState("absolute");
-
   function changeSelectedTimestamp(value) {
     setSelectedTimestamp(value);
-    setValues(transformValuesToList(rawData, value, visualization, measurement));
+    setValues(transformValuesToList(rawData, value, measurement));
   }
 
   function change(setter) {
@@ -315,19 +315,14 @@ function App() {
     if(!rawData.measurements)
       return;
 
-    setValues(transformValuesToList(rawData, selectedTimestamp, visualization, measurement));
-    changeCumValues(measurement);
+    setValues(transformValuesToList(rawData, selectedTimestamp, measurement));
+    changeCumValues(measurement, hueMeasurement);
     lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
     if(currentStatusIs(statuses.viewingLive))
       changeSelectedTimestamp(rawData.timestamps.length - 1);
     else if(currentStatusIs(statuses.viewingHistory))
       changeSelectedTimestamp(0);
   }, [rawData]);
-
-  function changeVisualization(e) {
-    setVisualization(e.target.value);
-    setValues(transformValuesToList(rawData, selectedTimestamp, e.target.value, measurement));
-  }
 
   const setNextTimeout = () => {
     if(currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.viewingLiveNotTracking))
@@ -430,15 +425,12 @@ function App() {
     concatData(rawData, newData);
   }, [newData]);
 
-  function transformValuesToList(data, selectedTimestamp, visualization, measurement) {
+  function transformValuesToList(data, selectedTimestamp, measurement) {
     const measurements = data.measurements[measurement.name];
     const res = [];
     for(let i = 0; i < measurements.length; ++i) {
       const measurement = measurements[i];
       let value = measurement[selectedTimestamp];
-      if(visualization == "density") {
-        value = calcDensity(value, grid[i].properties.unusable_area);
-      }
       res.push(value);
     }
     return res;
@@ -499,12 +491,12 @@ function App() {
 
   function tooltip(index) {
     let html = "";
-    if(visualization == "absolute") {
+    if(hueMeasurement.name === "None") {
       html = `<span><b>${values[index]}</b> ${measurement.unit}</span>`
-    } else if(visualization == "density") {
-      html = `<span><b>${gridDensity(index)}</b> ${measurement.unit}/m<sup>2</sup></span>`
-    } else {
+    } else if(hueMeasurement.name === "Density") {
       html = `<span><b>${values[index]}</b> ${measurement.unit}<br /><b>${gridDensity(index)}</b> ${measurement.unit}/m<sup>2</sup></span>`
+    } else {
+      html = `<span><b>${values[index]}</b> ${measurement.unit} (${measurement.name})<br /><b>${valueForHueMeasurement(index)}</b> ${hueMeasurement.unit} (${hueMeasurement.name})</span>`
     }
     return {html};
   }
@@ -551,16 +543,24 @@ function App() {
     }
   }
 
-  function changeCumValues(measurement) {
+  function changeCumValues(measurement, hueMeasurement) {
     if(rawData.measurements) {
       setCumValues(transformCumValuesToList(rawData, "absolute", measurement));
       setCumDensityValues(transformCumValuesToList(rawData, "density", measurement));
+      if(hueMeasurement.name == "None" || hueMeasurement.name == "Density") { // no hue measurement selected
+        setCumHueValues(null);
+        setCumHueDensityValues(null)
+      }
+      else { // hue measurement selected
+         setCumHueValues(transformCumValuesToList(rawData, "absolute", hueMeasurement));
+         setCumHueDensityValues(transformCumValuesToList(rawData, "density", hueMeasurement));
+      }
     }
   }
 
-  useEffect(() => changeCumValues(measurement), [selectedSquares]);
+  useEffect(() => changeCumValues(measurement, hueMeasurement), [selectedSquares]);
 
-  const arrForColors = visualization === "density" ? cumDensityValues : cumValues;
+  const arrForColors = cumValues;
   const maxCumValue = maxFromArray(arrForColors);
   const minCumValue = minFromArray(arrForColors);
   const sliderColors = [];
@@ -573,6 +573,19 @@ function App() {
   }
 
   const [measurement, setMeasurement] = useState(measurements[0]);
+
+  const hueMeasurements = [
+    {name: "None"},
+    {name: "Density"}
+  ];
+  for(const m of measurements) {
+    if(m !== measurement) {
+      hueMeasurements.push(m);
+    }
+  }
+
+  const [hueMeasurement, setHueMeasurement] = useState(hueMeasurements[0]);
+
 
   function chartPointColor(ctx) {
     if(ctx.dataIndex === selectedTimestamp) {
@@ -597,8 +610,16 @@ function App() {
   function changeMeasurement(e) {
     const m = e.target.value;
     setMeasurement(m);
-    setValues(transformValuesToList(rawData, selectedTimestamp, visualization, m));
-    changeCumValues(m);
+    if(m == hueMeasurement)
+      setHueMeasurement(hueMeasurements[0]); // None
+    setValues(transformValuesToList(rawData, selectedTimestamp, m));
+    changeCumValues(m, hueMeasurement);
+  }
+
+  function changeHueMeasurement(e) {
+    const m = e.target.value;
+    setHueMeasurement(m);
+    changeCumValues(measurement, m);
   }
 
   const [prismSize, setPrismSize] = useState(DEFAULT_PRISM_SIZE);
@@ -606,16 +627,27 @@ function App() {
   function calcElevation(index) {
     const value = values[index];
     const measurement_max = measurement.max;
-    const density_factor = visualization === "density" ? 15000 : 1;
     const elevation_max = prismSize.size;
-    return value * density_factor * elevation_max / measurement_max;
+    return value * elevation_max / measurement_max;
+  }
+
+  function valueForHueMeasurement(index) {
+    return rawData.measurements[hueMeasurement.name][index][selectedTimestamp];
+  }
+
+  function percentageForMeasurement(index) {
+    const value = valueForHueMeasurement(index);
+    const percentage = Math.min(0.1, value / hueMeasurement.max / 10);
+    return percentage;
   }
 
   function calcPrismColor(index) {
-    if(visualization === "both")
+    if(hueMeasurement.name == "Density")
       return getRgbForPercentage(gridDensity(index));
-    else
+    else if(hueMeasurement.name == "None")
       return [0, 0, 100];
+    else
+      return getRgbForPercentage(percentageForMeasurement(index));
   }
 
   const [showData, setShowData] = useState("all"); // "all" | "selected" | "none"
@@ -655,9 +687,9 @@ function App() {
       "specularColor": [255, 255, 255]
     },
     updateTriggers: {
-      getColor: [visualization, values, prismSize],
-      getElevation: [visualization, values, prismSize],
-      getPaintTopFace: [visualization, values],
+      getColor: [values, prismSize, hueMeasurement],
+      getElevation: [values, prismSize],
+      getPaintTopFace: [values],
       getPosition: [showData, selectedSquares, values]
     }
   });
@@ -723,19 +755,19 @@ function App() {
           </>},
         {title: "Visualization options", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
-            <TextField select value={visualization} sx={{width: 300}} onChange={changeVisualization}>
-              <MenuItem value="absolute" key="absolute">Absolute</MenuItem>
-              <MenuItem value="density" key="density">Density</MenuItem>
-              <MenuItem value="both" key="both">Absolute (height) + Density (color)</MenuItem>
+            <TextField select label="Height" sx={{width: 100}} value={measurement} onChange={changeMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
+              {measurements.map(m => (
+                <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
+              ))}
+            </TextField>
+            <TextField select label="Hue" sx={{width: 120}} value={hueMeasurement} onChange={changeHueMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
+                {hueMeasurements.map(m => (
+                  <MenuItem value={m} key={m.name}>{m.description ? m.name + " - " + m.description : m.name}</MenuItem>
+                ))}
             </TextField>
             <TextField select label="Size" value={prismSize} onChange={change(setPrismSize)}>
               {PRISM_SIZES.map(s => (
                 <MenuItem value={s} key={s.caption}>{s.caption}</MenuItem>
-              ))}
-            </TextField>
-            <TextField select label="Measurement" sx={{width: 100}} value={measurement} onChange={changeMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
-              {measurements.map(m => (
-                <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
               ))}
             </TextField>
             <IconButtonWithTooltip tooltip={animateToggleButtonTooltip} onClick={toggleAnimate} iconComponent={animateIconComponent} />
@@ -744,7 +776,7 @@ function App() {
             <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
             <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
           </Stack>},
-        {title: "History", icon: <ManageHistoryIcon/>, stayOnFreeze: true, content:
+          {title: "History", icon: <ManageHistoryIcon/>, stayOnFreeze: true, content:
           <Stack spacing={2}>
             <Stack direction="row" spacing={2}>
               <DateTimeWidget label="Start" value={start} onChange={setStart} disabled={loadingHistory} />
@@ -794,7 +826,7 @@ function App() {
             <DrawControl onFinish={drawingFinished} />}
         </Map>
       </div>
-      <LineChart timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} />
+      <LineChart timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} />
     </div>
   );
 }

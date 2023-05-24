@@ -33,12 +33,12 @@ function pointRadius(numberOfPoints) {
   return points * -0.02 + 3;
 }
 
-function LineChart({timestamps, cumValues, cumDensityValues, chartPointColor, selectedSquaresNum}) {
+function LineChart({timestamps, cumValues, cumDensityValues, cumHueValues, cumHueDensityValues, measurementName, hueMeasurementName, chartPointColor, selectedSquaresNum}) {
   const [visible, setVisible] = useState(true);
   const [visualization, setVisualization] = useState("absolute");
 
   const options = {
-    scales: {x: {display: false}, y: {ticks: {callback: visualization === "absolute" ? abbreviateValue : abbreviateDensity}}},
+    scales: {x: {display: false}, y: {ticks: {callback: visualization === "absolute" ? abbreviateValue : abbreviateDensity}, position: "left"}},
     interaction: {mode: "index", intersect: false},
     plugins: {
       title: {display: true, text: title(selectedSquaresNum)},
@@ -48,8 +48,14 @@ function LineChart({timestamps, cumValues, cumDensityValues, chartPointColor, se
 
   const data = {
     labels: timestamps ? timestamps.map(formatTimestamp) : [],
-    datasets: [{data: visualization === "absolute" ? cumValues : cumDensityValues, pointBackgroundColor: chartPointColor, pointRadius: pointRadius(timestamps ? timestamps.length : 0)}]
+    datasets: [{data: visualization === "absolute" ? cumValues : cumDensityValues, pointBackgroundColor: chartPointColor, pointRadius: pointRadius(timestamps ? timestamps.length : 0), yAxisID: "y"}]
   };
+
+  if(cumHueValues) {
+    options.scales.yright = {ticks: {callback: visualization === "absolute" ? abbreviateValue : abbreviateDensity}, position: "right"}
+    data.datasets[0].label = measurementName;
+    data.datasets.push({data: visualization === "absolute" ? cumHueValues : cumHueDensityValues, pointBackgroundColor: "#cc6600", pointRadius: pointRadius(timestamps ? timestamps.length : 0), yAxisID: "yright", label: hueMeasurementName})
+  }
 
   return (
     visible ?
