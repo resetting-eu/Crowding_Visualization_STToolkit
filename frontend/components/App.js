@@ -458,8 +458,8 @@ function App() {
     let squares = selectedSquares;
     if(selectedSquares.length === 0) {
       squares = [];
-      for(let i = 0; i < data.measurements[measurement.name].length; ++i)
-        squares.push(i);
+      for(const s of grid)
+        squares.push(s.properties.id);
     }
 
     const selectedSquaresCumValues = [];
@@ -468,8 +468,9 @@ function App() {
     }
     let totalUsableArea = 0;
     for(const square of squares) {
-      const squareMeasurements = data.measurements[measurement.name][square];
-      totalUsableArea += 200 * 200 - grid[square].properties.unusable_area;
+      const index = grid.findIndex(s => s.properties.id === square);
+      const squareMeasurements = data.measurements[measurement.name][index];
+      totalUsableArea += 200 * 200 - grid[index].properties.unusable_area;
       for(let i = 0; i < squareMeasurements.length; ++i) {
         const squareMeasurement = squareMeasurements[i] ? squareMeasurements[i] : 0;
         selectedSquaresCumValues[i] += squareMeasurement;
