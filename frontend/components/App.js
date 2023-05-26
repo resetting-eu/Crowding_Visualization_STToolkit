@@ -446,12 +446,12 @@ function App() {
 
   function calcDensity(value, unusable_area) {
     const usable_area = 200 * 200 - unusable_area; // TODO actually calculate area of square
-    const density = value / usable_area;
+    const density = value / usable_area * 10000;
     return density;
   }
 
   function formatDensity(density) {
-    return density.toFixed(3);
+    return Math.round(density);
   }
 
   function transformCumValuesToList(data, visualization, measurement) {
@@ -476,6 +476,7 @@ function App() {
         selectedSquaresCumValues[i] += squareMeasurement;
       }
     }
+    totalUsableArea /= 10000;
     if(visualization === "density") {
       for(let i = 0; i < selectedSquaresCumValues.length; ++i) {
         selectedSquaresCumValues[i] = selectedSquaresCumValues[i] / totalUsableArea;
@@ -495,7 +496,7 @@ function App() {
     if(hueMeasurement.name === "None") {
       html = `<span><b>${values[index]}</b> ${measurement.unit}</span>`
     } else if(hueMeasurement.name === "Density") {
-      html = `<span><b>${values[index]}</b> ${measurement.unit}<br /><b>${gridDensity(index)}</b> ${measurement.unit}/m<sup>2</sup></span>`
+      html = `<span><b>${values[index]}</b> ${measurement.unit}<br /><b>${gridDensity(index)}</b> ${measurement.unit}/ha</span>`
     } else {
       html = `<span><b>${values[index]}</b> ${measurement.unit} (${measurement.name})<br /><b>${valueForHueMeasurement(index)}</b> ${hueMeasurement.unit} (${hueMeasurement.name})</span>`
     }
@@ -644,7 +645,7 @@ function App() {
 
   function calcPrismColor(index) {
     if(hueMeasurement.name == "Density")
-      return getRgbForPercentage(gridDensity(index));
+      return getRgbForPercentage(gridDensity(index) / 10000);
     else if(hueMeasurement.name == "None")
       return [0, 0, 100];
     else

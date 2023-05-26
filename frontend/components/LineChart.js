@@ -13,7 +13,7 @@ import { formatTimestamp, abbreviateValue } from "./Utils";
 ChartJS.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Title, zoomPlugin);
 
 function abbreviateDensity(density) {
-  return density.toFixed(2);
+  return density;
 }
 
 function title(selectedSquaresNum) {
