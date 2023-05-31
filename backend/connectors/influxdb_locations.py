@@ -26,7 +26,7 @@ def query_locations(url, token, org, bucket, start, location_variable, latlong_v
         for table in tables:
             for record in table.records:
                 location_id = record.values[location_variable]
-                coordinate_index = 0 if record.values[latlong_variable] == "latitude" else 1
+                coordinate_index = 1 if record.values[latlong_variable] == "latitude" else 0
                 feature = get_feature_by_id(locations, location_id)
                 if not feature:
                     feature = new_feature(location_id)

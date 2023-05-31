@@ -42,7 +42,6 @@ import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLoc
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
-import { LOCAL_INFLUXDB, GRID_URL, HISTORY_URL, LIVE_URL, PRISM_SIZES, DEFAULT_PRISM_SIZE, PARISHES_URL } from './Config';
 import { CUBE_MESH } from './CubeMesh';
 import CustomMeshLayer from './CustomMeshLayer';
 
@@ -123,28 +122,6 @@ const style = {
 
 const emptyGeoJson = [];
 
-const measurements = [
-  {name: "C1", description: "Number of distinct devices", unit: "devices", max: 2454},
-  {name: "C2", description: "Number of distinct roaming devices", unit: "devices", max: 539},
-  {name: "C3", description: "Number of distinct devices that stayed in cell", unit: "devices", max: 2232},
-  {name: "C4", description: "Number of distinct roaming devices that stayed in cell", unit: "devices", max: 481.9},
-  {name: "C5", description: "Number of distinct devices entering the cell", unit: "devices", max: 801.1},
-  {name: "C6", description: "Number of distinct devices exiting the cell", unit: "devices", max: 812.4},
-  {name: "C7", description: "Number of distinct roaming devices entering the cell", unit: "devices", max: 244.3},
-  {name: "C8", description: "Number of distinct roaming devices exiting the cell", unit: "devices", max: 224.5},
-  {name: "C9", description: "Number of distinct devices with active data connection", unit: "devices", max: 2380},
-  {name: "C10", description: "Number of distinct roaming devices with active data connection", unit: "devices", max: 535.1},
-  {name: "C11", description: "Number of voice calls originating from cell", unit: "calls", max: 75.64},
-  {name: "E1", description: "Number of voice calls terminating in cell", unit: "calls", max: 12.47},
-  {name: "E2", description: "Average rate of downstream", unit: "rate", max: 412900},
-  {name: "E3", description: "Average rate of upstream", unit: "rate", max: 34180},
-  {name: "E4", description: "Peak rate of downstream", unit: "rate", max: 68650000},
-  {name: "E5", description: "Peak rate of upstream", unit: "rate", max: 17800000},
-  {name: "E7", description: "Minimum permanence duration", unit: "minutes", max: 10},
-  {name: "E8", description: "Average permanence duration", unit: "minutes", max: 182.1},
-  {name: "E9", description: "Maximum permanence duration", unit: "minutes", max: 300},
-  {name: "E10", description: "Number of devices that share connection", unit: "devices", max: 10}
-];
 
 function DateTimeWidget(props) {
   const [dateObj, setDateObj] = useState(dayjs(props.value, "YYYY-MM-DDTHH:mm:ss"));
@@ -192,33 +169,33 @@ const statuses = {
   noData: {caption: "No data loaded"}
 }
 
-function App() {
+function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, prismSizes, defaultPrismSize}) {
   const [grid, setGrid] = useState(emptyGeoJson);
   const [parishes, setParishes] = useState([]);
   const [selectedParishes, setSelectedParishes] = useState([]);
-  const [rawData, setRawData] = useState([]);
+  const [rawData, setRawData] = useState({});
   const [values, setValues] = useState([]);
   const [cumValues, setCumValues] = useState([]);
-  const [cumDensityValues, setCumDensityValues] = useState([]);
+  const [cumDensityValues, setCumDensityValues] = useState(null);
   const [cumHueValues, setCumHueValues] = useState(null);
   const [cumHueDensityValues, setCumHueDensityValues] = useState(null);
 
   const nonSelectedParishes = parishes.filter(p => !selectedParishes.includes(p));
 
   useEffect(() => {
-    fetch(GRID_URL)
+    fetch(backendUrl + "/locations")
       .then(r => r.json())
       .then(data => {
         data.sort((a, b) => a.properties.id - b.properties.id);
         setGrid(data);
       });
-    fetch(PARISHES_URL)
-      .then(r => r.json())
-      .then(ps => setParishes(ps));
+    // fetch(PARISHES_URL)
+    //   .then(r => r.json())
+    //   .then(ps => setParishes(ps));
   }, []);
 
   const [start, setStart] = useState("2022-06-01T00:00:00Z");
-  const [end, setEnd] = useState("2022-06-01T12:00:00Z");
+  const [end, setEnd] = useState("2022-06-01T03:00:00Z");
   const [everyNumber, setEveryNumber] = useState("1");
   const [everyUnit, setEveryUnit] = useState("h");
 
@@ -282,7 +259,7 @@ function App() {
 
   function load() {
     changeStatus(statuses.loadingHistory);
-    const url = HISTORY_URL + "?start=" + start + "&end=" + end
+    const url = backendUrl + "/history" + "?start=" + start + "&end=" + end
       + "&every=" + everyNumber + everyUnit + "&parishes=" + selectedParishes.join(",");
     fetch(url)
       .then(r => r.json())
@@ -291,17 +268,17 @@ function App() {
           changeStatus(statuses.viewingHistory);
           setRawData(data);
         };
-        if(LOCAL_INFLUXDB) {
-          setTimeout(setData, 5000); // simulate delay
-        } else {
+        // if(LOCAL_INFLUXDB) {
+        //   setTimeout(setData, 5000); // simulate delay
+        // } else {
           setData();
-        }
+        // }
       });
   }
 
   function loadLive() {
     changeStatus(statuses.loadingLive);
-    fetch(LIVE_URL)
+    fetch(backendUrl + "/live")
       .then(r => r.json())
       .then(data => {
         changeStatus(statuses.viewingLive);
@@ -309,15 +286,16 @@ function App() {
       });
   }
 
-  const lastTimestamp = useRef(null);
+  const client_id = useRef(null);
 
   useEffect(() => {
-    if(!rawData.measurements)
+    if(!rawData.values)
       return;
 
     setValues(transformValuesToList(rawData, selectedTimestamp, measurement));
     changeCumValues(measurement, hueMeasurement);
-    lastTimestamp.current = rawData.timestamps[rawData.timestamps.length - 1];
+    if(rawData.client_id)
+      client_id.current = rawData.client_id;
     if(currentStatusIs(statuses.viewingLive))
       changeSelectedTimestamp(rawData.timestamps.length - 1);
     else if(currentStatusIs(statuses.viewingHistory))
@@ -332,7 +310,7 @@ function App() {
   const [newData, setNewData] = useState(null);
 
   const loadLiveNewData = () => {
-    const url = LIVE_URL + "?last_timestamp=" + lastTimestamp.current;
+    const url = backendUrl + "/live" + "?client_id=" + client_id.current;
     fetch(url)
       .then(r => r.json())
       .then(data => {
@@ -361,15 +339,15 @@ function App() {
     if(firstNewTimestamp === 0)
       return newData;
     if(firstNewTimestamp === null)
-      return {timestamps: [], measurements: {}};
+      return {timestamps: [], values: {}};
     
     const timestamps = newData.timestamps.slice(firstNewTimestamp);
     
     const measurements = {};
-    for(const measurement in newData.measurements) {
+    for(const measurement in newData.values) {
       measurements[measurement] = [];
-      for(let i = 0; i < newData.measurements[measurement].length; ++i) {
-        measurements[measurement].push(newData.measurements[measurement][i].slice(firstNewTimestamp));
+      for(const loc in newData.values[measurement]) {
+        measurements[measurement].push(newData.values[measurement][loc].slice(firstNewTimestamp));
       }
     }
 
@@ -388,26 +366,26 @@ function App() {
     }
     const {first_old, first_new} = concatDataIndexes(old_length, new_length, MAX_LIVE_BUFFER_SIZE);
 
-    const concatData = {timestamps: [], measurements: {}};
+    const concatData = {timestamps: [], values: {}};
     for(let i = first_old; i < old_length; ++i) {
       concatData.timestamps.push(oldData.timestamps[i]);
     }
     for(let i = first_new; i < new_length; ++i) {
       concatData.timestamps.push(newData.timestamps[i]);
     }
-    for(const measurement_name of Object.keys(oldData.measurements)) {
-      for(let i = 0; i < oldData.measurements[measurement_name].length; ++i) {
+    for(const measurement_name of Object.keys(oldData.values)) {
+      for(const loc in oldData.values[measurement_name]) {
         const ms = [];
         for(let j = first_old; j < old_length; ++j) {
-          ms.push(oldData.measurements[measurement_name][i][j]);
+          ms.push(oldData.values[measurement_name][loc][j]);
         }
         for(let j = first_new; j < new_length; ++j) {
-          ms.push(newData.measurements[measurement_name][i][j]);
+          ms.push(newData.values[measurement_name][loc][j]);
         }
-        if(!concatData.measurements[measurement_name]) {
-          concatData.measurements[measurement_name] = [];
+        if(!concatData.values[measurement_name]) {
+          concatData.values[measurement_name] = [];
         }
-        concatData.measurements[measurement_name].push(ms);
+        concatData.values[measurement_name][loc] = ms;
       }  
     }
     setRawData(concatData);
@@ -426,22 +404,23 @@ function App() {
   }, [newData]);
 
   function transformValuesToList(data, selectedTimestamp, measurement) {
-    const measurements = data.measurements[measurement.name];
+    const measurements = data.values[measurement.name];
     const res = [];
-    for(let i = 0; i < measurements.length; ++i) {
-      const measurement = measurements[i];
+    for(const loc in measurements) {
+      const measurement = measurements[loc];
       let value = measurement[selectedTimestamp];
       res.push(value);
     }
     return res;
   }
 
-  function gridDensity(grid_index) {
-    if(!rawData.measurements)
+  function gridDensity(location) {
+    if(!rawData.values)
       return 0;
-    const m = rawData.measurements[measurement.name][grid_index];
+    const m = rawData.values[measurement.name][location];
     const value = m[selectedTimestamp];
-    return formatDensity(calcDensity(value, grid[grid_index].properties.unusable_area));
+    const cell = grid.find(c => c.properties.id === location);
+    return formatDensity(calcDensity(value, cell.properties.unusable_area));
   }
 
   function calcDensity(value, unusable_area) {
@@ -468,9 +447,11 @@ function App() {
     }
     let totalUsableArea = 0;
     for(const square of squares) {
-      const index = grid.findIndex(s => s.properties.id === square);
-      const squareMeasurements = data.measurements[measurement.name][index];
-      totalUsableArea += 200 * 200 - grid[index].properties.unusable_area;
+      if(!data.values[measurement.name][square])
+        continue;
+      const squareMeasurements = data.values[measurement.name][square];
+      const squareFeature = grid.find(s => s.properties.id === square);
+      totalUsableArea += 200 * 200 - squareFeature.properties.unusable_area;
       for(let i = 0; i < squareMeasurements.length; ++i) {
         const squareMeasurement = squareMeasurements[i] ? squareMeasurements[i] : 0;
         selectedSquaresCumValues[i] += squareMeasurement;
@@ -491,14 +472,15 @@ function App() {
       changeStatus(statuses.viewingLiveNotTracking);
   }
 
-  function tooltip(index) {
+  function tooltip(index, location) {
     let html = "";
+    const mainValue = Math.round(values[index]);
     if(hueMeasurement.name === "None") {
-      html = `<span><b>${values[index]}</b> ${measurement.unit}</span>`
+      html = `<span><b>${mainValue}</b> ${measurement.unit}</span>`
     } else if(hueMeasurement.name === "Density") {
-      html = `<span><b>${values[index]}</b> ${measurement.unit}<br /><b>${gridDensity(index)}</b> ${measurement.unit}/ha</span>`
+      html = `<span><b>${mainValue}</b> ${measurement.unit}<br /><b>${gridDensity(index)}</b> ${measurement.unit}/ha</span>`
     } else {
-      html = `<span><b>${values[index]}</b> ${measurement.unit} (${measurement.name})<br /><b>${valueForHueMeasurement(index)}</b> ${hueMeasurement.unit} (${hueMeasurement.name})</span>`
+      html = `<span><b>${mainValue}</b> ${measurement.unit} (${measurement.name})<br /><b>${valueForHueMeasurement(location)}</b> ${hueMeasurement.unit} (${hueMeasurement.name})</span>`
     }
     return {html};
   }
@@ -546,16 +528,18 @@ function App() {
   }
 
   function changeCumValues(measurement, hueMeasurement) {
-    if(rawData.measurements) {
+    if(rawData.values) {
       setCumValues(transformCumValuesToList(rawData, "absolute", measurement));
-      setCumDensityValues(transformCumValuesToList(rawData, "density", measurement));
+      if(hasDensity)
+        setCumDensityValues(transformCumValuesToList(rawData, "density", measurement));
       if(hueMeasurement.name == "None" || hueMeasurement.name == "Density") { // no hue measurement selected
         setCumHueValues(null);
-        setCumHueDensityValues(null)
-      }
-      else { // hue measurement selected
+        if(hasDensity)
+          setCumHueDensityValues(null);
+      } else { // hue measurement selected
          setCumHueValues(transformCumValuesToList(rawData, "absolute", hueMeasurement));
-         setCumHueDensityValues(transformCumValuesToList(rawData, "density", hueMeasurement));
+         if(hasDensity)
+           setCumHueDensityValues(transformCumValuesToList(rawData, "density", hueMeasurement));
       }
     }
   }
@@ -577,9 +561,10 @@ function App() {
   const [measurement, setMeasurement] = useState(measurements[0]);
 
   const hueMeasurements = [
-    {name: "None"},
-    {name: "Density"}
+    {name: "None"}
   ];
+  if(hasDensity)
+    hueMeasurements.push({name: "Density"});
   for(const m of measurements) {
     if(m !== measurement) {
       hueMeasurements.push(m);
@@ -624,7 +609,7 @@ function App() {
     changeCumValues(measurement, m);
   }
 
-  const [prismSize, setPrismSize] = useState(DEFAULT_PRISM_SIZE);
+  const [prismSize, setPrismSize] = useState(defaultPrismSize);
 
   function calcElevation(index) {
     const value = values[index];
@@ -633,23 +618,24 @@ function App() {
     return value * elevation_max / measurement_max;
   }
 
-  function valueForHueMeasurement(index) {
-    return rawData.measurements[hueMeasurement.name][index][selectedTimestamp];
+  function valueForHueMeasurement(location) {
+    if(rawData.values[hueMeasurement.name][location])
+      return rawData.values[hueMeasurement.name][location][selectedTimestamp];
   }
 
-  function percentageForMeasurement(index) {
-    const value = valueForHueMeasurement(index);
+  function percentageForMeasurement(location) {
+    const value = valueForHueMeasurement(location);
     const percentage = Math.min(0.1, value / hueMeasurement.max / 10);
     return percentage;
   }
 
-  function calcPrismColor(index) {
+  function calcPrismColor(location) {
     if(hueMeasurement.name == "Density")
-      return getRgbForPercentage(gridDensity(index) / 10000);
+      return getRgbForPercentage(gridDensity(location) / 10000);
     else if(hueMeasurement.name == "None")
       return [0, 0, 100];
     else
-      return getRgbForPercentage(percentageForMeasurement(index));
+      return getRgbForPercentage(percentageForMeasurement(location));
   }
 
   const [showData, setShowData] = useState("all"); // "all" | "selected" | "none"
@@ -679,7 +665,7 @@ function App() {
     pickable: true,
     getElevation: (_, info) => Math.min(calcElevation(info.index), prismSize.size),
     getPosition: getPosition,
-    getColor: (_, info) => calcPrismColor(info.index),
+    getColor: s => calcPrismColor(s.properties.id),
     getTopFaceColor: [255, 0, 0],
     getPaintTopFace: (_, info) => values[info.index] > measurement.max ? 1.0 : 0.0,
     material: {
@@ -768,7 +754,7 @@ function App() {
                 ))}
             </TextField>
             <TextField select label="Size" value={prismSize} onChange={change(setPrismSize)}>
-              {PRISM_SIZES.map(s => (
+              {prismSizes.map(s => (
                 <MenuItem value={s} key={s.caption}>{s.caption}</MenuItem>
               ))}
             </TextField>
@@ -814,21 +800,23 @@ function App() {
             <MenuItem value="selected" key="selected">Selected</MenuItem>
             <MenuItem value="none" key="none">None</MenuItem>
           </TextField>
-          <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive)}>Live</Button>
+          {hasLive && 
+            <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive)}>Live</Button>}
         </Stack>
       </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
-        <Map mapLib={maplibregl} mapStyle={style} initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
+        <Map mapLib={maplibregl} mapStyle={style}
+          initialViewState={initialViewState}
           onClick={(e) => !drawing && toggleSquare(e.lngLat)}
           onDblClick={(e) => e.preventDefault()}>
           <DeckGLOverlay layers={layers} effects={[lightingEffect]}
-            getTooltip={(o) => o.picked && tooltip(o.index)} />
+            getTooltip={(o) => o.picked && tooltip(o.index, o.object.properties.id)} />
           {/* <NavigationControl /> */}
           {drawControlOn && 
             <DrawControl onFinish={drawingFinished} />}
         </Map>
       </div>
-      <LineChart timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} />
+      <LineChart hasDensity={hasDensity} timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} />
     </div>
   );
 }

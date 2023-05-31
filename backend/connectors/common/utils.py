@@ -23,4 +23,7 @@ def uuid():
     return str(uuid4())
 
 def parse_date(datestr):
+    splits = datestr.split(".")
+    if len(splits) > 1:
+        datestr = splits[0] + "Z"
     return datetime.strptime(datestr, "%Y-%m-%dT%H:%M:%SZ")

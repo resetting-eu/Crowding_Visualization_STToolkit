@@ -33,7 +33,7 @@ function pointRadius(numberOfPoints) {
   return points * -0.02 + 3;
 }
 
-function LineChart({timestamps, cumValues, cumDensityValues, cumHueValues, cumHueDensityValues, measurementName, hueMeasurementName, chartPointColor, selectedSquaresNum}) {
+function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueValues, cumHueDensityValues, measurementName, hueMeasurementName, chartPointColor, selectedSquaresNum}) {
   const [visible, setVisible] = useState(true);
   const [visualization, setVisualization] = useState("absolute");
 
@@ -42,7 +42,8 @@ function LineChart({timestamps, cumValues, cumDensityValues, cumHueValues, cumHu
     interaction: {mode: "index", intersect: false},
     plugins: {
       title: {display: true, text: title(selectedSquaresNum)},
-      zoom: {pan: {enabled: true, mode: "x"}, zoom: {wheel: {enabled: true}, mode: "x"}}
+      zoom: {pan: {enabled: true, mode: "x"}, zoom: {wheel: {enabled: true}, mode: "x"}},
+      tooltip: {callbacks: {label: context => new Intl.NumberFormat().format(Math.round(context.raw))}}
     }
   };
 
@@ -61,11 +62,12 @@ function LineChart({timestamps, cumValues, cumDensityValues, cumHueValues, cumHu
     visible ?
       <div style={{position: "absolute", bottom: "0px", left: "0px", height: "240px", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <div style={{display: "flex", justifyContent: "space-between"}}>
-          <span>
-            <Typography component="span">Absolute</Typography>
-            <Switch size="small" checked={visualization === "density"} onChange={e => setVisualization(e.target.checked ? "density" : "absolute")} />
-            <Typography component="span">Density</Typography>
-          </span>
+          {hasDensity &&
+            <span>
+              <Typography component="span">Absolute</Typography>
+              <Switch size="small" checked={visualization === "density"} onChange={e => setVisualization(e.target.checked ? "density" : "absolute")} />
+              <Typography component="span">Density</Typography>
+            </span>}
           <span>
             <IconButton onClick={() => setVisible(false)}>
               <CloseIcon />
