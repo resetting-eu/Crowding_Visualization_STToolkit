@@ -38,6 +38,7 @@ export default function Home() {
       ]}
       prismSizes={prismSizes}
       defaultPrismSize={defaultPrismSize}
-      hasLive={false} />
+      hasLive={false}
+      columnRadius={12} />
   )
 }

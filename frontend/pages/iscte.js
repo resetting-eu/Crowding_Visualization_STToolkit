@@ -21,6 +21,7 @@ export default function Home() {
           {name: "no_randoms", description: "no_randoms", unit: "devices", max: 500}]}
       prismSizes={prismSizes}
       defaultPrismSize={defaultPrismSize}
-      hasLive={true} />
+      hasLive={true}
+      columnRadius={5} />
   )
 }

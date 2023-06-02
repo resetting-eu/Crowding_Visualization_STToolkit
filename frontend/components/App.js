@@ -42,8 +42,7 @@ import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLoc
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
-import { CUBE_MESH } from './CubeMesh';
-import CustomMeshLayer from './CustomMeshLayer';
+import CustomColumnLayer from './CustomColumnLayer';
 
 import dynamic from 'next/dynamic';
 
@@ -56,7 +55,7 @@ const ambientLight = new AmbientLight({
 const directionalLight = new DirectionalLight({
   color: [255, 255, 255],
   intensity: 1.0,
-  direction: [0, -1, 0]
+  direction: [0, 1, 0]
 });
 const lightingEffect = new LightingEffect({ambientLight, directionalLight});
 
@@ -169,7 +168,7 @@ const statuses = {
   noData: {caption: "No data loaded"}
 }
 
-function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, prismSizes, defaultPrismSize}) {
+function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, prismSizes, defaultPrismSize, columnRadius}) {
   const [grid, setGrid] = useState(emptyGeoJson);
   const [parishes, setParishes] = useState([]);
   const [selectedParishes, setSelectedParishes] = useState([]);
@@ -658,16 +657,16 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, p
       getFillColor: [selectedSquares]
     }
   });
-  const prismLayer = new CustomMeshLayer({
-    id: "meshes",
+  const prismLayer = new CustomColumnLayer({
+    id: "columns",
     data: grid,
-    mesh: CUBE_MESH,
     pickable: true,
     getElevation: (_, info) => Math.min(calcElevation(info.index), prismSize.size),
     getPosition: getPosition,
     getColor: s => calcPrismColor(s.properties.id),
     getTopFaceColor: [255, 0, 0],
     getPaintTopFace: (_, info) => values[info.index] > measurement.max ? 1.0 : 0.0,
+    radius: columnRadius,
     material: {
       "ambient": 0.35,
       "diffuse": 0.6,
