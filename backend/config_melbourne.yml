@@ -10,3 +10,10 @@ live:
       - total_of_directions
       - direction_1
       - direction_2
+
+locations:
+  connector: opendatasoft_locations
+  parameters:
+    url: https://data.melbourne.vic.gov.au/api/v2
+    dataset: pedestrian-counting-system-sensor-locations
+    location_property: location_id

@@ -12,6 +12,7 @@ export default function Home(props) {
       <main>
         <p><a href="/vodafone">Vodafone</a></p>
         <p><a href="/iscte">ISCTE</a></p>
+        <p><a href="/melbourne">Melbourne</a></p>
       </main>
     </>
   )
