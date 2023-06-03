@@ -27,3 +27,11 @@ def parse_date(datestr):
     if len(splits) > 1:
         datestr = splits[0] + "Z"
     return datetime.strptime(datestr, "%Y-%m-%dT%H:%M:%SZ")
+
+def array_put_at(arr, index, value):
+    if len(arr) > index:
+        arr[index] = value
+    else:
+        for _ in range(len(arr), index):
+            arr.append(None)
+        arr.append(value)

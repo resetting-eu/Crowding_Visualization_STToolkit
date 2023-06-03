@@ -1,0 +1,12 @@
+live:
+  connector: opendatasoft_live
+  parameters:
+    url: https://data.melbourne.vic.gov.au/api/v2
+    dataset: pedestrian-counting-system-past-hour-counts-per-minute
+    timestamp_field: sensingdatetime
+    location_field: locationid
+    initial_time_offset: 1h
+    metric_fields:
+      - total_of_directions
+      - direction_1
+      - direction_2
