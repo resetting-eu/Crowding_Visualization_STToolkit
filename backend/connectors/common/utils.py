@@ -35,3 +35,7 @@ def array_put_at(arr, index, value):
         for _ in range(len(arr), index):
             arr.append(None)
         arr.append(value)
+
+def array_pad(arr, length):
+    for _ in range(len(arr), length):
+        arr.append(None)

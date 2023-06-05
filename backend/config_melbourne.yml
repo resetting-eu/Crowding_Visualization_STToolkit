@@ -6,6 +6,7 @@ live:
     timestamp_field: sensingdatetime
     location_field: locationid
     initial_time_offset: 1h
+    max_buffer_size: 20
     metric_fields:
       - total_of_directions
       - direction_1
