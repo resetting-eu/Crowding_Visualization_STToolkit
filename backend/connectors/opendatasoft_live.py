@@ -28,17 +28,15 @@ def generate_handler(parameters):
             max_record_timestamp = now_minus_offset
             first_timestamp = now_minus_offset
         res = get_values(max_record_timestamp, first_timestamp, url, dataset, timestamp_field, location_field, metric_fields)
+        max_record_timestamp = res["max_record_timestamp"]
         if not client_info:
             client_id = uuid()
             res["client_id"] = client_id
             clients_info[client_id] = {}
             clients_info[client_id]["timestamps"] = []
-            if len(res["timestamps"]) > 0: # check data was actually returned from external endpoint
-                max_record_timestamp = res["max_record_timestamp"]
         clients_info[client_id]["max_record_timestamp"] = max_record_timestamp
-        clients_info[client_id]["timestamps"] = cap_timestamps(clients_info[client_id]["timestamps"], res["timestamps"], max_buffer_size)
-        if len(clients_info[client_id]["timestamps"]) > 0:
-            cap_res(res, clients_info[client_id]["timestamps"][0])
+        clients_info[client_id]["timestamps"] = new_saved_timestamps(clients_info[client_id]["timestamps"], res["timestamps"], max_buffer_size)
+        cap_res(res, calc_new_first_timestamp(clients_info[client_id]["timestamps"], res["timestamps"], max_buffer_size))
         return jsonify(res)
     return opendatasoft_live_handler
 
@@ -53,7 +51,7 @@ def get_values(max_record_timestamp, first_timestamp, url_prefix, dataset, times
     new_max_record_timestamp = max_record_timestamp
     for record in fetch_records(url):
         record_timestamp = record["timestamp"]
-        if record_timestamp < max_record_timestamp:
+        if record_timestamp <= max_record_timestamp:
             continue # record was processed in a previous invocation
         if record_timestamp > new_max_record_timestamp:
             new_max_record_timestamp = record_timestamp
@@ -88,18 +86,36 @@ def pad_values(values, length):
         for location in values[metric_name]:
             array_pad(values[metric_name][location], length)
 
-def cap_timestamps(saved_timestamps, res_timestamps, max_buffer_size):
-    timestamps = set()
-    for timestamp in saved_timestamps:
-        timestamps.add(timestamp)
-    for timestamp in res_timestamps:
-        timestamps.add(timestamp)
+# pre: len(saved_timestamps + res_timestamps) > 0
+def calc_new_first_timestamp(saved_timestamps, res_timestamps, max_buffer_size):
+    timestamps = set(saved_timestamps + res_timestamps)
     sorted_timestamps = sorted(timestamps)
-    return sorted_timestamps[-max_buffer_size:]
+    if len(sorted_timestamps) <= max_buffer_size:
+        return sorted_timestamps[0]
+    else:
+        return sorted_timestamps[-max_buffer_size]
 
-def cap_res(res, first_timestamp):
-    first_timestamp_index = res["timestamps"].index(first_timestamp)
-    res["timestamps"] = res["timestamps"][first_timestamp_index:]
-    for metric_name in res["values"]:
-        for location in res["values"][metric_name]:
-            res["values"][metric_name][location] = res["values"][metric_name][location][first_timestamp_index:]
+# pre: len(saved_timestamps + res_timestamps) > 0
+def new_saved_timestamps(saved_timestamps, res_timestamps, max_buffer_size):
+    timestamps = set(saved_timestamps + res_timestamps)
+    sorted_timestamps = sorted(timestamps)
+    if len(sorted_timestamps) <= max_buffer_size:
+        return sorted_timestamps
+    else:
+        return sorted_timestamps[-max_buffer_size:]
+
+def timestamps_new_first_index(timestamps, new_first_timestamp):
+    for i in range(len(timestamps)):
+        if timestamps[i] >= new_first_timestamp:
+            return i
+
+def cap_res(res, new_first_timestamp):
+    new_first_index = timestamps_new_first_index(res["timestamps"], new_first_timestamp)
+    if new_first_index is None:
+        res["timestamps"] = []
+        res["values"] = {}
+        return
+    res["timestamps"] = res["timestamps"][new_first_index:]
+    for metric in res["values"]:
+        for location in res["values"][metric]:
+            res["values"][metric][location] = res["values"][metric][location][new_first_index:]
