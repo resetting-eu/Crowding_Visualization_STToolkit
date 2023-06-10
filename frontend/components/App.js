@@ -689,7 +689,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
     pickable: true,
     getElevation: (_, info) => Math.min(calcElevation(info.index), prismSize),
     getPosition: getPosition,
-    getColor: s => calcPrismColor(s.properties.id),
+    getFillColor: s => calcPrismColor(s.properties.id),
     getTopFaceColor: [255, 0, 0],
     getPaintTopFace: (_, info) => values[info.index] > measurement.max ? 1.0 : 0.0,
     radius: columnRadius,
@@ -700,7 +700,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
       "specularColor": [255, 255, 255]
     },
     updateTriggers: {
-      getColor: [values, hueMeasurement],
+      getFillColor: [values, hueMeasurement],
       getElevation: [values, prismSize],
       getPaintTopFace: [values],
       getPosition: [showData, selectedSquares, values]
