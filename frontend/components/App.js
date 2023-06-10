@@ -156,6 +156,32 @@ function IconButtonWithTooltip(props) {
   );
 }
 
+function ZoomChangeListener({map, onChange}) {
+  const prevDate = useRef(null);
+  const intervalId = useRef(null);
+  const callback = () => {
+    const now = new Date();
+    if(prevDate.current && now - prevDate.current > 500) {
+      prevDate.current = null;
+      clearInterval(intervalId.current);
+      intervalId.current = null;
+      onChange(map.getZoom());
+    } else {
+      prevDate.current = now;
+      if(!intervalId.current) {
+        intervalId.current = setInterval(callback, 500);
+      }
+    }
+  }
+  if(map) {
+    map.on("zoom", callback);
+  }
+  return null;
+}
+
+function zoomToHeight(zoom) {
+  return Math.min(Math.max(-1200 * zoom + 20000, 400), 3000);
+}
 
 const statuses = {
   loadingHistory: {caption: "Loading historical data...", loading: true},
@@ -168,7 +194,7 @@ const statuses = {
   noData: {caption: "No data loaded"}
 }
 
-function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, prismSizes, defaultPrismSize, columnRadius}) {
+function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, columnRadius}) {
   const [grid, setGrid] = useState(emptyGeoJson);
   const [parishes, setParishes] = useState([]);
   const [selectedParishes, setSelectedParishes] = useState([]);
@@ -608,12 +634,12 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, p
     changeCumValues(measurement, m);
   }
 
-  const [prismSize, setPrismSize] = useState(defaultPrismSize);
+  const [prismSize, setPrismSize] = useState(zoomToHeight(initialViewState.zoom));
 
   function calcElevation(index) {
     const value = values[index];
     const measurement_max = measurement.max;
-    const elevation_max = prismSize.size;
+    const elevation_max = prismSize;
     return value * elevation_max / measurement_max;
   }
 
@@ -661,7 +687,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, p
     id: "columns",
     data: grid,
     pickable: true,
-    getElevation: (_, info) => Math.min(calcElevation(info.index), prismSize.size),
+    getElevation: (_, info) => Math.min(calcElevation(info.index), prismSize),
     getPosition: getPosition,
     getColor: s => calcPrismColor(s.properties.id),
     getTopFaceColor: [255, 0, 0],
@@ -674,7 +700,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, p
       "specularColor": [255, 255, 255]
     },
     updateTriggers: {
-      getColor: [values, prismSize, hueMeasurement],
+      getColor: [values, hueMeasurement],
       getElevation: [values, prismSize],
       getPaintTopFace: [values],
       getPosition: [showData, selectedSquares, values]
@@ -731,6 +757,12 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, p
   const animateIconComponent = animating ? StopIcon : PlayArrowIcon;
   const animateToggleButtonTooltip = animating ? "Stop animation" : "Play animation";
 
+  const mapRef = useRef(null);
+
+  function onChangeZoom(zoom) {
+    setPrismSize(zoomToHeight(zoom));
+  }
+
   return (
     <div>
       <StatusPane status={status} />
@@ -751,11 +783,6 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, p
                 {hueMeasurements.map(m => (
                   <MenuItem value={m} key={m.name}>{m.description ? m.name + " - " + m.description : m.name}</MenuItem>
                 ))}
-            </TextField>
-            <TextField select label="Size" value={prismSize} onChange={change(setPrismSize)}>
-              {prismSizes.map(s => (
-                <MenuItem value={s} key={s.caption}>{s.caption}</MenuItem>
-              ))}
             </TextField>
             <IconButtonWithTooltip tooltip={animateToggleButtonTooltip} onClick={toggleAnimate} iconComponent={animateIconComponent} />
             <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={animating} />
@@ -805,6 +832,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, p
       </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
         <Map mapLib={maplibregl} mapStyle={style}
+          ref={mapRef}
           initialViewState={initialViewState}
           onClick={(e) => !drawing && toggleSquare(e.lngLat)}
           onDblClick={(e) => e.preventDefault()}>
@@ -814,6 +842,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, p
           {drawControlOn && 
             <DrawControl onFinish={drawingFinished} />}
         </Map>
+        <ZoomChangeListener map={mapRef.current} onChange={onChangeZoom} />
       </div>
       <LineChart hasDensity={hasDensity} timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} />
     </div>

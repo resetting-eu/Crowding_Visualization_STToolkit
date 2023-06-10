@@ -1,13 +1,5 @@
 import Page from '@/components/Page'
 
-const prismSizes = [
-  {caption: "Small", size: 1000},
-  {caption: "Medium", size: 2000},
-  {caption: "Large", size: 3000}
-];
-
-const defaultPrismSize = prismSizes[1];
-
 export default function Home() {
   return (
     <Page 
@@ -36,8 +28,6 @@ export default function Home() {
         {name: "E9", description: "Maximum permanence duration", unit: "minutes", max: 300},
         {name: "E10", description: "Number of devices that share connection", unit: "devices", max: 10}
       ]}
-      prismSizes={prismSizes}
-      defaultPrismSize={defaultPrismSize}
       hasLive={false}
       columnRadius={12} />
   )
