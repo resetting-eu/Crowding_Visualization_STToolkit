@@ -23,7 +23,7 @@ def query(url_prefix, dataset, first_timestamp, last_timestamp, max_record_times
         values[metric_name] = {}
     current_timestamp = "1900-01-01T00:00:00Z"
     current_timestamp_index = -1
-    new_max_record_timestamp = max_record_timestamp
+    new_max_record_timestamp = max_record_timestamp if max_record_timestamp else current_timestamp
     for record in fetch_records(url):
         record_timestamp = record["timestamp"]
         if max_record_timestamp and record_timestamp <= max_record_timestamp:
