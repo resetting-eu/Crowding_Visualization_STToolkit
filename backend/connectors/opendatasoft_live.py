@@ -1,5 +1,5 @@
 from flask import request, jsonify
-from .common.opendatasoft import fetch_records
+from .common.opendatasoft import query
 from .common.utils import parse_duration, dt_to_string, array_put_at, uuid, array_pad
 from datetime import datetime
 
@@ -27,7 +27,7 @@ def generate_handler(parameters):
         else:
             max_record_timestamp = now_minus_offset
             first_timestamp = now_minus_offset
-        res = get_values(max_record_timestamp, first_timestamp, url, dataset, timestamp_field, location_field, metric_fields)
+        res = query(url, dataset, first_timestamp, None, max_record_timestamp, timestamp_field, location_field, metric_fields)
         max_record_timestamp = res["max_record_timestamp"]
         if not client_info:
             client_id = uuid()
@@ -39,52 +39,6 @@ def generate_handler(parameters):
         cap_res(res, calc_new_first_timestamp(clients_info[client_id]["timestamps"], res["timestamps"], max_buffer_size))
         return jsonify(res)
     return opendatasoft_live_handler
-
-def get_values(max_record_timestamp, first_timestamp, url_prefix, dataset, timestamp_field, location_field, metric_fields):
-    url = generate_url(first_timestamp, url_prefix, dataset, timestamp_field)
-    timestamps = set()
-    values = {}
-    for metric_name in metric_fields:
-        values[metric_name] = {}
-    current_timestamp = "1900-01-01T00:00:00Z"
-    current_timestamp_index = -1
-    new_max_record_timestamp = max_record_timestamp
-    for record in fetch_records(url):
-        record_timestamp = record["timestamp"]
-        if record_timestamp <= max_record_timestamp:
-            continue # record was processed in a previous invocation
-        if record_timestamp > new_max_record_timestamp:
-            new_max_record_timestamp = record_timestamp
-        fields = record["fields"]
-        timestamp = fields[timestamp_field]
-        timestamps.add(timestamp)
-        if timestamp > current_timestamp:
-            current_timestamp = timestamp
-            current_timestamp_index += 1
-        location = fields[location_field]
-        for metric_name in metric_fields:
-            value = fields.get(metric_name)
-            if value:
-                if location not in values[metric_name]:
-                    values[metric_name][location] = []
-                array_put_at(values[metric_name][location], current_timestamp_index, value)
-    pad_values(values, len(timestamps))
-    sorted_timestamps = sorted(timestamps)
-    return {"timestamps": sorted_timestamps, "values": values, "max_record_timestamp": new_max_record_timestamp}
-
-def generate_url(first_timestamp, url_prefix, dataset, timestamp_field):
-    first_timestamp = first_timestamp.replace("+00:00", "Z")
-    limit = 100
-    order_by = "{}%20asc".format(timestamp_field)
-    where = "{}>=date'{}'".format(timestamp_field, first_timestamp)
-    url = url_prefix + "/catalog/datasets/" + dataset
-    url += "/records?order_by={}&where={}&limit={}".format(order_by, where, limit)
-    return url
-
-def pad_values(values, length):
-    for metric_name in values:
-        for location in values[metric_name]:
-            array_pad(values[metric_name][location], length)
 
 # pre: len(saved_timestamps + res_timestamps) > 0
 def calc_new_first_timestamp(saved_timestamps, res_timestamps, max_buffer_size):
