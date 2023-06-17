@@ -50,8 +50,8 @@ grammar = Grammar(
     paren_expr = "(" sum ")"
     identifier = ~r"[A-Z_][A-Z_0-9]*"i
     constant = int / float
-    float = ~r"[0-9]*\.[0-9]+"
-    int = ~r"[0-9]+"
+    float = ~r"-?[0-9]*\.[0-9]+"
+    int = ~r"-?[0-9]+"
     """
 )
 
@@ -103,17 +103,17 @@ class CalcExpressionVisitor(NodeVisitor):
         return visited_children[1]
 
     def visit_identifier(self, node, visited_children):
-        identifier = node.match.group()
+        identifier = node.text
         return self._id_values[identifier]
     
     def visit_constant(self, node, visited_children):
         return visited_children[0]
 
     def visit_float(self, node, visited_children):
-        return float(node.match.group())
+        return float(node.text)
     
     def visit_int(self, node, visited_children):
-        return int(node.match.group())
+        return int(node.text)
     
     def generic_visit(self, node, visited_children):
         if len(visited_children) > 0:
