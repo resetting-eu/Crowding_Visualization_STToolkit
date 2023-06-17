@@ -26,7 +26,8 @@ export default function Home() {
         {name: "E7", description: "Minimum permanence duration", unit: "minutes", max: 10},
         {name: "E8", description: "Average permanence duration", unit: "minutes", max: 182.1},
         {name: "E9", description: "Maximum permanence duration", unit: "minutes", max: 300},
-        {name: "E10", description: "Number of devices that share connection", unit: "devices", max: 10}
+        {name: "E10", description: "Number of devices that share connection", unit: "devices", max: 10},
+        {name: "National", description: "C1 - C2", unit: "devices", max: 1915}
       ]}
       hasLive={false}
       columnRadius={12} />
