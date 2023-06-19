@@ -500,12 +500,14 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
   function tooltip(index, location) {
     let html = "";
     const mainValue = Math.round(values[index]);
+    const mainDescription = "(" + measurement.name + (measurement.shortDescription ? ` - ${measurement.shortDescription}` : "") + ")";
+    const hueDescription = "(" + hueMeasurement.name + (hueMeasurement.shortDescription ? ` - ${hueMeasurement.shortDescription}` : "") + ")";
     if(hueMeasurement.name === "None") {
-      html = `<span><b>${mainValue}</b> ${measurement.unit}</span>`
+      html = `<span><b>${mainValue}</b> ${measurement.unit} ${mainDescription}</span>`;
     } else if(hueMeasurement.name === "Density") {
-      html = `<span><b>${mainValue}</b> ${measurement.unit}<br /><b>${gridDensity(index)}</b> ${measurement.unit}/ha</span>`
+      html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${gridDensity(index)}</b> ${measurement.unit}/ha</span>`;
     } else {
-      html = `<span><b>${mainValue}</b> ${measurement.unit} (${measurement.name})<br /><b>${valueForHueMeasurement(location)}</b> ${hueMeasurement.unit} (${hueMeasurement.name})</span>`
+      html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${Math.round(valueForHueMeasurement(location))}</b> ${hueMeasurement.unit} ${hueDescription}</span>`;
     }
     return {html};
   }
