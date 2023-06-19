@@ -500,8 +500,8 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
   function tooltip(index, location) {
     let html = "";
     const mainValue = Math.round(values[index]);
-    const mainDescription = "(" + measurement.name + (measurement.shortDescription ? ` - ${measurement.shortDescription}` : "") + ")";
-    const hueDescription = "(" + hueMeasurement.name + (hueMeasurement.shortDescription ? ` - ${hueMeasurement.shortDescription}` : "") + ")";
+    const mainDescription = "(" + measurement.name + " - " + (measurement.shortDescription ? measurement.shortDescription : measurement.description) + ")";
+    const hueDescription = "(" + hueMeasurement.name + " - " + (hueMeasurement.shortDescription ? hueMeasurement.shortDescription : hueMeasurement.description) + ")";
     if(hueMeasurement.name === "None") {
       html = `<span><b>${mainValue}</b> ${measurement.unit} ${mainDescription}</span>`;
     } else if(hueMeasurement.name === "Density") {
