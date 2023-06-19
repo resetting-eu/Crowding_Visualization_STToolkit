@@ -803,7 +803,6 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
                 <MenuItem value="h" key="h">Hour</MenuItem>
                 <MenuItem value="d" key="d">Day</MenuItem>
                 <MenuItem value="w" key="w">Week</MenuItem>
-                <MenuItem value="mo" key="mo">Month</MenuItem>
               </TextField>
               <span style={{position: "relative", top:"15px"}}>
                 <MUITooltip title="Interval defines the time window that will be used to aggregate and average the data">
