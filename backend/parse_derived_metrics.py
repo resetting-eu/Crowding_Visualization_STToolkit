@@ -77,7 +77,10 @@ class CalcExpressionVisitor(NodeVisitor):
         res = visited_children[0]
         if visited_children[1]:
             operator, right = visited_children[1]
-            res = res + right if operator == "+" else res - right
+            try:
+                res = res + right if operator == "+" else res - right
+            except TypeError: # some variable is null
+                res = None
         return res
     
     def visit_plus_or_minus(self, node, visited_children):
@@ -88,7 +91,10 @@ class CalcExpressionVisitor(NodeVisitor):
         res = visited_children[0]
         if visited_children[1]:
             operator, right = visited_children[1]
-            res = res * right if operator == "*" else res / right
+            try:
+                res = res * right if operator == "*" else res / right
+            except TypeError: # some variable is null
+                res = None
         return res
 
     def visit_mult_or_div(self, node, visited_children): #NOSONAR
