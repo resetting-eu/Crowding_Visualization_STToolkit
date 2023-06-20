@@ -638,9 +638,13 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
 
   const [prismSize, setPrismSize] = useState(zoomToHeight(initialViewState.zoom));
 
+  function measurementMax() {
+    return currentStatusIs(statuses.viewingHistory) && measurement.maxHistory ? measurement.maxHistory : measurement.max;
+  }
+
   function calcElevation(index) {
     const value = values[index];
-    const measurement_max = measurement.max;
+    const measurement_max = measurementMax();
     const elevation_max = prismSize;
     return value * elevation_max / measurement_max;
   }
@@ -693,7 +697,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
     getPosition: getPosition,
     getFillColor: s => calcPrismColor(s.properties.id),
     getTopFaceColor: [255, 0, 0],
-    getPaintTopFace: (_, info) => values[info.index] > measurement.max ? 1.0 : 0.0,
+    getPaintTopFace: (_, info) => values[info.index] > measurementMax() ? 1.0 : 0.0,
     radius: columnRadius,
     material: {
       "ambient": 0.35,
