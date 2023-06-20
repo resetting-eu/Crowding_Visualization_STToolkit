@@ -22,7 +22,7 @@ def add_constant_expression(res, metric_name, value):
     res["values"][metric_name] = {}
     for metric in res["values"]:
         for location in res["values"][metric]:
-            res["values"][metric_name][location] = value * timestamps_size
+            res["values"][metric_name][location] = [value] * timestamps_size
 
 def location_in_all_metrics(location, res, metrics):
     for metric in metrics:
