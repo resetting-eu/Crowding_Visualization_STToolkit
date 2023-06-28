@@ -839,7 +839,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
             <MenuItem value="none" key="none">None</MenuItem>
           </TextField>
           {hasLive && 
-            <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive)}>Live</Button>}
+            <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.loadingLive)}>Live</Button>}
         </Stack>
       </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
