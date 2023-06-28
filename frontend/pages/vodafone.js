@@ -3,6 +3,8 @@ import Page from '@/components/Page'
 export default function Home() {
   return (
     <Page 
+      locale="pt"
+      timezone="Europe/Lisbon"
       initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
       hasDensity={true}
       backendUrl="http://localhost:5000"

@@ -1,8 +1,28 @@
 import dayjs from "dayjs";
+export {dayjs};
 import localizedFormat from "dayjs/plugin/localizedFormat";
+import timezonePlugin from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import {center} from '@turf/turf';
 
 dayjs.extend(localizedFormat);
+dayjs.extend(timezonePlugin);
+dayjs.extend(utc);
+
+let dayjsLocaleSet = false;
+let timezone;
+// function to be called by module that imports Utils
+export function dayjsSetLocaleAndTimezone(locale, tz) {
+  import(`dayjs/locale/${locale}` + ".js").then(() => dayjs.locale(locale));
+  timezone = tz;
+  dayjsLocaleSet = true; // now we can use the dayjs object (using function below)
+}
+
+// make sure to use this getter in internal code of this module, instead of dayjs directly
+function dayjsObj() {
+  console.assert(dayjsLocaleSet);
+  return dayjs;
+}
 
 const utmObj = require('utm-latlng');
 const utm = new utmObj();
@@ -35,8 +55,12 @@ export function abbreviateValue(value) {
     return value;
 }
 
+// pre: dayjsSetLocaleAndTimezone has been invoked before
 export function formatTimestamp(timestamp) {
-  const dateObj = dayjs(timestamp, "YYYY-MM-DDTHH:mm:ss");
+  let dateObj = dayjsObj().utc(timestamp, "YYYY-MM-DDTHH:mm:ss");
+  if(timezone) {
+    dateObj = dateObj.tz(timezone);
+  }
   return dateObj.format("L LT");
 }
 

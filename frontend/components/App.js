@@ -29,7 +29,6 @@ import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import Typography from '@mui/material/Typography';
 import Autocomplete from '@mui/material/Autocomplete';
 
-import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
@@ -38,7 +37,7 @@ import MapboxDrawStyles from './MapboxDrawStyles';
 
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
-import { concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage } from './Utils';
+import { dayjs, dayjsSetLocaleAndTimezone, concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
@@ -123,7 +122,7 @@ const emptyGeoJson = [];
 
 
 function DateTimeWidget(props) {
-  const [dateObj, setDateObj] = useState(dayjs(props.value, "YYYY-MM-DDTHH:mm:ss"));
+  const [dateObj, setDateObj] = useState(dayjs.utc(props.value, "YYYY-MM-DDTHH:mm:ss").tz(props.timezone));
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <DateTimePicker
@@ -132,8 +131,9 @@ function DateTimeWidget(props) {
         label={props.label}
         value={dateObj}
         onChange={(newDateObj) => {
+          console.log(newDateObj);
           setDateObj(newDateObj);
-          props.onChange(newDateObj.format("YYYY-MM-DDTHH:mm:ss[Z]"));
+          props.onChange(newDateObj.utc().format("YYYY-MM-DDTHH:mm:ss[Z]"));
         }} />
   </LocalizationProvider>
   );
@@ -194,7 +194,14 @@ const statuses = {
   noData: {caption: "No data loaded"}
 }
 
-function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, columnRadius}) {
+let dayjsLocaleSet = false;
+
+function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, columnRadius, locale, timezone}) {
+  if(!dayjsLocaleSet && locale) {
+    dayjsSetLocaleAndTimezone(locale, timezone);
+    dayjsLocaleSet = true;
+  }
+
   const [grid, setGrid] = useState(emptyGeoJson);
   const [parishes, setParishes] = useState([]);
   const [selectedParishes, setSelectedParishes] = useState([]);
@@ -799,8 +806,8 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
           {title: "History", icon: <ManageHistoryIcon/>, stayOnFreeze: true, content:
           <Stack spacing={2}>
             <Stack direction="row" spacing={2}>
-              <DateTimeWidget label="Start" value={start} onChange={setStart} disabled={loadingHistory} />
-              <DateTimeWidget label="End" value={end} onChange={setEnd} disabled={loadingHistory} />
+              <DateTimeWidget label="Start" value={start} onChange={setStart} disabled={loadingHistory} timezone={timezone} />
+              <DateTimeWidget label="End" value={end} onChange={setEnd} disabled={loadingHistory} timezone={timezone} />
             </Stack>
             <Stack direction="row" spacing={2} sx={{textAlign: "center"}} maxWidth={true} float="left">
               <TextField type="number" label="Interval" sx={{width: 75}} value={everyNumber} onChange={e => setEveryNumber(e.target.value)} disabled={loadingHistory} />
