@@ -8,13 +8,10 @@ import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
-import { formatTimestamp, abbreviateValue } from "./Utils";
+import Draggable from 'react-draggable';
+import { formatTimestamp, formatValue } from "./Utils";
 
 ChartJS.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Title, zoomPlugin);
-
-function abbreviateDensity(density) {
-  return density;
-}
 
 function title(selectedSquaresNum) {
   if(selectedSquaresNum > 1) {
@@ -33,12 +30,12 @@ function pointRadius(numberOfPoints) {
   return points * -0.02 + 3;
 }
 
-function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueValues, cumHueDensityValues, measurementName, hueMeasurementName, chartPointColor, selectedSquaresNum}) {
+function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueValues, cumHueDensityValues, chartPointColor, selectedSquaresNum, heightMeasurementDescription, hueMeasurementDescription}) {
   const [visible, setVisible] = useState(true);
   const [visualization, setVisualization] = useState("absolute");
 
   const options = {
-    scales: {x: {display: false}, y: {ticks: {callback: visualization === "absolute" ? abbreviateValue : abbreviateDensity}, position: "left"}},
+    scales: {x: {display: false}, y: {ticks: {callback: formatValue}, position: "left"}},
     interaction: {mode: "index", intersect: false},
     plugins: {
       title: {display: true, text: title(selectedSquaresNum)},
@@ -49,37 +46,38 @@ function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueV
 
   const data = {
     labels: timestamps ? timestamps.map(formatTimestamp) : [],
-    datasets: [{data: visualization === "absolute" ? cumValues : cumDensityValues, pointBackgroundColor: chartPointColor, pointRadius: pointRadius(timestamps ? timestamps.length : 0), yAxisID: "y"}]
+    datasets: [{data: visualization === "absolute" ? cumValues : cumDensityValues, pointBackgroundColor: chartPointColor, pointRadius: pointRadius(timestamps ? timestamps.length : 0), yAxisID: "y", tooltip: {callbacks: {afterLabel: () => heightMeasurementDescription}}}]
   };
 
   if(cumHueValues) {
-    options.scales.yright = {ticks: {callback: visualization === "absolute" ? abbreviateValue : abbreviateDensity}, position: "right"}
-    data.datasets[0].label = measurementName;
-    data.datasets.push({data: visualization === "absolute" ? cumHueValues : cumHueDensityValues, pointBackgroundColor: "#cc6600", pointRadius: pointRadius(timestamps ? timestamps.length : 0), yAxisID: "yright", label: hueMeasurementName})
+    options.scales.yright = {ticks: {callback: formatValue}, position: "right"}
+    data.datasets.push({data: visualization === "absolute" ? cumHueValues : cumHueDensityValues, pointBackgroundColor: "#cc6600", pointRadius: pointRadius(timestamps ? timestamps.length : 0), yAxisID: "yright", tooltip: {callbacks: {afterLabel: () => hueMeasurementDescription}}})
   }
 
   return (
     visible ?
-      <div style={{position: "absolute", bottom: "0px", left: "0px", height: "240px", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
-        <div style={{display: "flex", justifyContent: "space-between"}}>
-          {hasDensity &&
+      <Draggable>
+        <div style={{position: "absolute", bottom: "20px", left: "20px", height: "240px", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)", padding: "5px 15px 15px 15px", borderRadius: "25px"}}>
+          <div style={{display: "flex", justifyContent: "space-between"}}>
+            {hasDensity &&
+              <span>
+                <Typography component="span">Absolute</Typography>
+                <Switch size="small" checked={visualization === "density"} onChange={e => setVisualization(e.target.checked ? "density" : "absolute")} />
+                <Typography component="span">Density</Typography>
+              </span>}
             <span>
-              <Typography component="span">Absolute</Typography>
-              <Switch size="small" checked={visualization === "density"} onChange={e => setVisualization(e.target.checked ? "density" : "absolute")} />
-              <Typography component="span">Density</Typography>
-            </span>}
-          <span>
-            <IconButton onClick={() => setVisible(false)}>
-              <CloseIcon />
-            </IconButton>
-          </span>
+              <IconButton onClick={() => setVisible(false)}>
+                <CloseIcon />
+              </IconButton>
+            </span>
+          </div>
+          <Line
+            data={data}
+            options={options} />
         </div>
-        <Line
-          data={data}
-          options={options} />
-      </div>
+      </Draggable>
     :
-      <Fab sx={{position: "fixed", left: 0, bottom: 0}} onClick={() => setVisible(!visible)}>
+      <Fab sx={{position: "fixed", left: 20, bottom: 20}} onClick={() => setVisible(!visible)}>
         <TimelineIcon/>
       </Fab>
   );

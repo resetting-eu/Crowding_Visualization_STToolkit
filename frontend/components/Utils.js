@@ -46,13 +46,33 @@ export function concatDataIndexes(old_length, new_length, max_buffer_size) {
     return {first_old, first_new};
 }
 
-export function abbreviateValue(value) {
+function abbreviateValue(value) {
   if(value >= 1000000)
     return value / 1000000 + "M";
   else if(value >= 10000)
     return value / 1000 + "K";
   else
     return value;
+}
+
+export function formatValue(floatNumber) {
+  const integralPart = Math.floor(floatNumber);
+  const integralDigits = Math.abs(integralPart).toString().length;
+  let decimalDigits = 0;
+
+  if (integralDigits >= 5) {
+    return abbreviateValue(integralPart);
+  } else if (integralDigits === 3) {
+    decimalDigits = 1;
+  } else if (integralDigits === 2) {
+    decimalDigits = 2;
+  } else if (integralDigits === 1) {
+    decimalDigits = 3;
+  } else if (integralDigits === 0) {
+    decimalDigits = 4;
+  }
+  
+  return floatNumber.toFixed(decimalDigits);
 }
 
 // pre: dayjsSetLocaleAndTimezone has been invoked before

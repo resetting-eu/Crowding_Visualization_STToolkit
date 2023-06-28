@@ -504,21 +504,6 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
       changeStatus(statuses.viewingLiveNotTracking);
   }
 
-  function tooltip(index, location) {
-    let html = "";
-    const mainValue = Math.round(values[index]);
-    const mainDescription = "(" + measurement.name + " - " + (measurement.shortDescription ? measurement.shortDescription : measurement.description) + ")";
-    const hueDescription = "(" + hueMeasurement.name + " - " + (hueMeasurement.shortDescription ? hueMeasurement.shortDescription : hueMeasurement.description) + ")";
-    if(hueMeasurement.name === "None") {
-      html = `<span><b>${mainValue}</b> ${measurement.unit} ${mainDescription}</span>`;
-    } else if(hueMeasurement.name === "Density") {
-      html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${gridDensity(index)}</b> ${measurement.unit}/ha</span>`;
-    } else {
-      html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${Math.round(valueForHueMeasurement(location))}</b> ${hueMeasurement.unit} ${hueDescription}</span>`;
-    }
-    return {html};
-  }
-
   const [drawing, setDrawing] = useState(false);
   const [drawControlOn, setDrawControlOn] = useState(false);
 
@@ -606,7 +591,24 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
   }
 
   const [hueMeasurement, setHueMeasurement] = useState(hueMeasurements[0]);
+  
+  const heightMeasurementDescription = measurement && measurement.name + " - " + (measurement.shortDescription ? measurement.shortDescription : measurement.description);
+  const hueMeasurementDescription = hueMeasurement && hueMeasurement.name + " - " + (hueMeasurement.shortDescription ? hueMeasurement.shortDescription : hueMeasurement.description);
 
+  function tooltip(index, location) {
+    let html = "";
+    const mainValue = Math.round(values[index]);
+    const mainDescription = "(" + heightMeasurementDescription + ")";
+    const hueDescription = "(" + hueMeasurementDescription + ")";
+    if(hueMeasurement.name === "None") {
+      html = `<span><b>${mainValue}</b> ${measurement.unit} ${mainDescription}</span>`;
+    } else if(hueMeasurement.name === "Density") {
+      html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${gridDensity(index)}</b> ${measurement.unit}/ha</span>`;
+    } else {
+      html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${Math.round(valueForHueMeasurement(location))}</b> ${hueMeasurement.unit} ${hueDescription}</span>`;
+    }
+    return {html};
+  }
 
   function chartPointColor(ctx) {
     if(ctx.dataIndex === selectedTimestamp) {
@@ -856,7 +858,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
         </Map>
         <ZoomChangeListener map={mapRef.current} onChange={onChangeZoom} />
       </div>
-      <LineChart hasDensity={hasDensity} timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} />
+      <LineChart hasDensity={hasDensity} timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} heightMeasurementDescription={heightMeasurementDescription} hueMeasurementDescription={hueMeasurementDescription} />
     </div>
   );
 }
