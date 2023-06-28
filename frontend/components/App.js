@@ -179,9 +179,14 @@ function ZoomChangeListener({map, onChange}) {
   return null;
 }
 
-function zoomToHeight(zoom) {
-  return Math.min(Math.max(-1200 * zoom + 20000, 400), 3000);
+function zoomToHeightFactory(zoom1, height1, zoom2, height2, minHeight, maxHeight) {
+  const m = (height2 - height1) / (zoom2 - zoom1);
+  const b = height1 - m * zoom1;
+  const f = zoom => m * zoom + b;
+  return zoom => Math.min(Math.max(f(zoom), minHeight), maxHeight);
 }
+
+const zoomToHeight = zoomToHeightFactory(15, 750, 16, 400, 200, 1500);
 
 const statuses = {
   loadingHistory: {caption: "Loading historical data...", loading: true},
