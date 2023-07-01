@@ -201,14 +201,14 @@ const statuses = {
 
 let dayjsLocaleSet = false;
 
-function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, columnRadius, locale, timezone}) {
+function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, columnRadius, locale, timezone, parishesFile}) {
   if(!dayjsLocaleSet && locale) {
     dayjsSetLocaleAndTimezone(locale, timezone);
     dayjsLocaleSet = true;
   }
 
   const [grid, setGrid] = useState(emptyGeoJson);
-  const [parishes, setParishes] = useState([]);
+  const [parishesMapping, setParishesMapping] = useState({});
   const [selectedParishes, setSelectedParishes] = useState([]);
   const [rawData, setRawData] = useState({});
   const [values, setValues] = useState([]);
@@ -217,7 +217,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
   const [cumHueValues, setCumHueValues] = useState(null);
   const [cumHueDensityValues, setCumHueDensityValues] = useState(null);
 
-  const nonSelectedParishes = parishes.filter(p => !selectedParishes.includes(p));
+  const nonSelectedParishes = Object.keys(parishesMapping).filter(p => !selectedParishes.includes(p));
 
   useEffect(() => {
     fetch(backendUrl + "/locations")
@@ -226,9 +226,12 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
         data.sort((a, b) => a.properties.id - b.properties.id);
         setGrid(data);
       });
-    // fetch(PARISHES_URL)
-    //   .then(r => r.json())
-    //   .then(ps => setParishes(ps));
+    
+    if(parishesFile) {
+      fetch("/api/parishData?file=" + parishesFile)
+        .then(r => r.json())
+        .then(ps => setParishesMapping(ps));
+    }
   }, []);
 
   const [start, setStart] = useState("2022-06-01T00:00:00Z");
@@ -240,7 +243,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
 
   function changeSelectedTimestamp(value) {
     setSelectedTimestamp(value);
-    setValues(transformValuesToList(rawData, value, measurement));
+    setValues(valuesToVisualize(rawData, value, measurement));
   }
 
   function change(setter) {
@@ -294,10 +297,21 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
   const freezeToolbar = currentStatusIs(statuses.loadingHistory) || currentStatusIs(statuses.loadingLive);
   const loadingHistory = currentStatusIs(statuses.loadingHistory);
 
+  function locationsParameter() {
+    const locations = new Set();
+    for(const selectedParishName of selectedParishes) {
+      for(const loc of parishesMapping[selectedParishName]) {
+        locations.add(loc);
+      }
+    }
+    return [...locations].join(",");
+  }
+
   function load() {
     changeStatus(statuses.loadingHistory);
+    const locations = parishesFile ? "&locations=" + locationsParameter() : "";
     const url = backendUrl + "/history" + "?start=" + start + "&end=" + end
-      + "&every=" + everyNumber + everyUnit + "&parishes=" + selectedParishes.join(",");
+      + "&every=" + everyNumber + everyUnit + locations;
     fetch(url)
       .then(r => r.json())
       .then(data => {
@@ -329,7 +343,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
     if(!rawData.values)
       return;
 
-    setValues(transformValuesToList(rawData, selectedTimestamp, measurement));
+    setValues(valuesToVisualize(rawData, selectedTimestamp, measurement));
     changeCumValues(measurement, hueMeasurement);
     if(rawData.client_id)
       client_id.current = rawData.client_id;
@@ -440,13 +454,13 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
     concatData(rawData, newData);
   }, [newData]);
 
-  function transformValuesToList(data, selectedTimestamp, measurement) {
+  function valuesToVisualize(data, selectedTimestamp, measurement) {
     const measurements = data.values[measurement.name];
-    const res = [];
+    const res = {};
     for(const loc in measurements) {
       const measurement = measurements[loc];
       let value = measurement[selectedTimestamp];
-      res.push(value);
+      res[loc] = value;
     }
     return res;
   }
@@ -600,15 +614,15 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
   const heightMeasurementDescription = measurement && measurement.name + " - " + (measurement.shortDescription ? measurement.shortDescription : measurement.description);
   const hueMeasurementDescription = hueMeasurement && hueMeasurement.name + " - " + (hueMeasurement.shortDescription ? hueMeasurement.shortDescription : hueMeasurement.description);
 
-  function tooltip(index, location) {
+  function tooltip(location) {
     let html = "";
-    const mainValue = Math.round(values[index]);
+    const mainValue = Math.round(values[location]);
     const mainDescription = "(" + heightMeasurementDescription + ")";
     const hueDescription = "(" + hueMeasurementDescription + ")";
     if(hueMeasurement.name === "None") {
       html = `<span><b>${mainValue}</b> ${measurement.unit} ${mainDescription}</span>`;
     } else if(hueMeasurement.name === "Density") {
-      html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${gridDensity(index)}</b> ${measurement.unit}/ha</span>`;
+      html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${gridDensity(location)}</b> ${measurement.unit}/ha</span>`;
     } else {
       html = `<span>Height: <b>${mainValue}</b> ${measurement.unit} ${mainDescription}<br />Hue: <b>${Math.round(valueForHueMeasurement(location))}</b> ${hueMeasurement.unit} ${hueDescription}</span>`;
     }
@@ -640,7 +654,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
     setMeasurement(m);
     if(m == hueMeasurement)
       setHueMeasurement(hueMeasurements[0]); // None
-    setValues(transformValuesToList(rawData, selectedTimestamp, m));
+    setValues(valuesToVisualize(rawData, selectedTimestamp, m));
     changeCumValues(m, hueMeasurement);
   }
 
@@ -656,8 +670,8 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
     return currentStatusIs(statuses.viewingHistory) && measurement.maxHistory ? measurement.maxHistory : measurement.max;
   }
 
-  function calcElevation(index) {
-    const value = values[index];
+  function calcElevation(id) {
+    const value = values[id];
     const measurement_max = measurementMax();
     const elevation_max = prismSize;
     return value * elevation_max / measurement_max;
@@ -685,8 +699,8 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
 
   const [showData, setShowData] = useState("all"); // "all" | "selected" | "none"
 
-  function getPosition(square, info) {
-    if(!square || values[info.index] === undefined)
+  function getPosition(square) {
+    if(!square || values[square.properties.id] === undefined)
       return null;
     const show = showData === "all" || (showData === "selected" && selectedSquares.includes(square.properties.id));
     return show ? center(square).geometry.coordinates : null;
@@ -707,11 +721,11 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
     id: "columns",
     data: grid,
     pickable: true,
-    getElevation: (_, info) => Math.min(calcElevation(info.index), prismSize),
+    getElevation: s => Math.min(calcElevation(s.properties.id), prismSize),
     getPosition: getPosition,
     getFillColor: s => calcPrismColor(s.properties.id),
     getTopFaceColor: [255, 0, 0],
-    getPaintTopFace: (_, info) => values[info.index] > measurementMax() ? 1.0 : 0.0,
+    getPaintTopFace: s => values[s.properties.id] > measurementMax() ? 1.0 : 0.0,
     radius: columnRadius,
     material: {
       "ambient": 0.35,
@@ -856,7 +870,7 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
           onClick={(e) => !drawing && toggleSquare(e.lngLat)}
           onDblClick={(e) => e.preventDefault()}>
           <DeckGLOverlay layers={layers} effects={[lightingEffect]}
-            getTooltip={(o) => o.picked && tooltip(o.index, o.object.properties.id)} />
+            getTooltip={(o) => o.picked && tooltip(o.object.properties.id)} />
           {/* <NavigationControl /> */}
           {drawControlOn && 
             <DrawControl onFinish={drawingFinished} />}

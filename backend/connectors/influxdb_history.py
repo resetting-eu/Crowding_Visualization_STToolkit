@@ -3,7 +3,7 @@ from .common.influxdb import query
 
 # "1,2" -> [1,2]
 def commas_to_list(s):
-    return s.split(",") if s else ""
+    return s.split(",") if s else None
 
 def generate_handler(parameters):
     url = parameters["url"]

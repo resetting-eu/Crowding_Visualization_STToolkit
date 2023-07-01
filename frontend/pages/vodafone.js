@@ -32,6 +32,7 @@ export default function Home() {
         {name: "National", description: "Number of distinct devices, not in roaming", shortDescription: "devices not in roaming", unit: "devices", max: 1915}
       ]}
       hasLive={false}
+      parishesFile="lisbonParishesCells.json"
       columnRadius={12} />
   )
 }
