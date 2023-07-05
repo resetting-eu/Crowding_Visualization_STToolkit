@@ -689,6 +689,8 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
   }
 
   function calcPrismColor(location) {
+    if(!rawData.values[measurement.name][location])
+      return null;
     if(hueMeasurement.name == "Density")
       return getRgbForPercentage(gridDensity(location) / 10000);
     else if(hueMeasurement.name == "None")
