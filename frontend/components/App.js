@@ -26,6 +26,7 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ManageHistoryIcon from '@mui/icons-material/ManageHistory';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import Typography from '@mui/material/Typography';
 import Autocomplete from '@mui/material/Autocomplete';
 
@@ -201,6 +202,11 @@ const statuses = {
 
 let dayjsLocaleSet = false;
 
+function gotoLoginIf401(response) {
+  if(response.status === 401)
+    window.location.replace("/login");
+}
+
 function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, columnRadius, locale, timezone, parishesFile}) {
   if(!dayjsLocaleSet && locale) {
     dayjsSetLocaleAndTimezone(locale, timezone);
@@ -220,8 +226,8 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
   const nonSelectedParishes = Object.keys(parishesMapping).filter(p => !selectedParishes.includes(p));
 
   useEffect(() => {
-    fetch(backendUrl + "/locations")
-      .then(r => r.json())
+    fetch(backendUrl + "/locations", {credentials: "include"})
+      .then(r => {gotoLoginIf401(r); return r.json()})
       .then(data => {
         data.sort((a, b) => a.properties.id - b.properties.id);
         setGrid(data);
@@ -312,9 +318,12 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
     const locations = parishesFile ? "&locations=" + locationsParameter() : "";
     const url = backendUrl + "/history" + "?start=" + start + "&end=" + end
       + "&every=" + everyNumber + everyUnit + locations;
-    fetch(url)
-      .then(r => r.json())
+    const start_date = Date.now();
+    fetch(url, {credentials: "include"})
+      .then(r => {gotoLoginIf401(r); return r.json()})
       .then(data => {
+        const end_date = Date.now();
+        console.log(`time: ${(end_date - start_date) / 1000}`);
         const setData = () => {
           changeStatus(statuses.viewingHistory);
           setRawData(data);
@@ -329,8 +338,8 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
 
   function loadLive() {
     changeStatus(statuses.loadingLive);
-    fetch(backendUrl + "/live")
-      .then(r => r.json())
+    fetch(backendUrl + "/live", {credentials: "include"})
+      .then(r => {gotoLoginIf401(r); return r.json()})
       .then(data => {
         changeStatus(statuses.viewingLive);
         setRawData(data);
@@ -362,8 +371,8 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
 
   const loadLiveNewData = () => {
     const url = backendUrl + "/live" + "?client_id=" + client_id.current;
-    fetch(url)
-      .then(r => r.json())
+    fetch(url, {credentials: "include"})
+      .then(r => {gotoLoginIf401(r); return r.json()})
       .then(data => {
         if(!data.timestamps || data.timestamps.length === 0) {
           setNextTimeout();
@@ -852,6 +861,9 @@ function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, c
           </Stack>},
         {title: "Points", icon: <TroubleshootIcon/>, content:
           <p>Not implemented yet</p>
+        },
+        {title: "Manage account", icon: <ManageAccountsIcon />, content:
+          <Button variant="contained" onClick={() => window.location.replace("/account")}>Account page</Button>
         }]} />
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Stack direction="row" spacing={2}>
