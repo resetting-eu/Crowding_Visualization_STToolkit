@@ -48,6 +48,9 @@ import dynamic from 'next/dynamic';
 
 import {AmbientLight, DirectionalLight, LightingEffect} from '@deck.gl/core';
 
+import Config from '@/components/Config'
+const backendUrl = Config.urlPrefix;
+
 const ambientLight = new AmbientLight({
   color: [255, 255, 255],
   intensity: 2.0
@@ -207,7 +210,7 @@ function gotoLoginIf401(response) {
     window.location.replace("/login");
 }
 
-function App({initialViewState, hasDensity, hasLive, backendUrl, measurements, columnRadius, locale, timezone, parishesFile}) {
+function App({initialViewState, hasDensity, hasLive, measurements, columnRadius, locale, timezone, parishesFile}) {
   if(!dayjsLocaleSet && locale) {
     dayjsSetLocaleAndTimezone(locale, timezone);
     dayjsLocaleSet = true;

@@ -7,7 +7,6 @@ export default function Home() {
       timezone="Europe/Lisbon"
       initialViewState={{longitude: -9.22502725720, latitude: 38.69209409900, zoom: 15, pitch: 30}}
       hasDensity={true}
-      backendUrl="http://localhost:5000"
       measurements={[
         {name: "C1", description: "Number of distinct devices", shortDescription: "all devices", unit: "devices", max: 2454},
         {name: "C2", description: "Number of distinct roaming devices", shortDescription: "roaming", unit: "devices", max: 539},

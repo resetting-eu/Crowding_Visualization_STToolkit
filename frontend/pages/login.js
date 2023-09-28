@@ -14,7 +14,7 @@ if(typeof window !== 'undefined')
   fetch(config.urlPrefix + "/auth/user_info", {credentials: "include"})
     .then(r => {
       if(r.status === 200) // session exists
-        window.location.replace("/iscte")
+        window.location.replace("/")
     });
 
 export default function Login(props) {
@@ -29,7 +29,7 @@ export default function Login(props) {
     fetch(config.urlPrefix + "/auth/login", {method: "POST", credentials: "include", headers: {"Content-Type": "application/json"}, body: JSON.stringify({email, password})})
       .then(r => {
         if(r.status === 200) {
-          window.location.replace("/iscte");
+          window.location.replace("/");
           setAlert(null);
         } else if(r.status === 401) {
           setAlert("Invalid email or password");

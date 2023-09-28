@@ -13,7 +13,7 @@ let dayjsLocaleSet = false;
 let timezone;
 // function to be called by module that imports Utils
 export function dayjsSetLocaleAndTimezone(locale, tz) {
-  import(`dayjs/locale/${locale}` + ".js").then(() => dayjs.locale(locale));
+  // import(`dayjs/locale/${locale}`).then(() => dayjs.locale(locale)); // TODO configure typescript so this doesn't produce an error
   timezone = tz;
   dayjsLocaleSet = true; // now we can use the dayjs object (using function below)
 }

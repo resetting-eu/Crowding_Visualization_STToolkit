@@ -148,7 +148,7 @@ export default function Account(props) {
   }
 
   function gotoApp() {
-    window.location.replace("/iscte");
+    window.location.replace("/");
   }
 
   function tabChange(value) {

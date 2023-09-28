@@ -1,5 +1,4 @@
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -14,11 +13,6 @@ from datetime import datetime
 from uuid import uuid4
 from time import perf_counter
 import sys
-from .parse_derived_metrics import add_derived_metrics
-from .db_model import db, User, Role
-from .hash import gen_hash, check_hash
-from .send_email import send_email
-
 
 config_file = environ["CONFIG"] if "CONFIG" in environ else "config.yml"
 with open(config_file, encoding="utf-8") as f:
@@ -28,18 +22,36 @@ del cfg["auth"]
 
 app = Flask(__name__)
 
-app.config["CORS_ORIGINS"] = "http://localhost:3000"
-app.config["CORS_SUPPORTS_CREDENTIALS"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
+LOCAL_ENV = environ.get("ENV") == "local"
+
+if LOCAL_ENV:
+    app.config["CORS_ORIGINS"] = "http://localhost:3000"
+    app.config["CORS_SUPPORTS_CREDENTIALS"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "None"
+    LIMITER_STORAGE_URI = "memory://"
+    from .parse_derived_metrics import add_derived_metrics
+    from .db_model import db, User, Role
+    from .hash import gen_hash, check_hash
+    from .send_email import send_email
+else:
+    app.config["SESSION_COOKIE_SECURE"] = True
+    LIMITER_STORAGE_URI = "memcached://memcached:11211"
+    from parse_derived_metrics import add_derived_metrics
+    from db_model import db, User, Role
+    from hash import gen_hash, check_hash
+    from send_email import send_email
+
 app.config["SECRET_KEY"] = cfg_auth["secret_key"]
 app.config["SQLALCHEMY_DATABASE_URI"] = cfg_auth["database_uri"]
 
-CORS(app)
+if LOCAL_ENV:
+    from flask_cors import CORS
+    CORS(app)
 
 limiter = Limiter(
     get_remote_address,
     app=app,
-    storage_uri="memory://"
+    storage_uri=LIMITER_STORAGE_URI
 )
 
 login_manager = LoginManager(app)
@@ -311,7 +323,10 @@ with app.app_context():
 for file in listdir("connectors"):
     if file[-3:] == ".py" and file != "__init__.py":
         basename = file[:-3]
-        module = import_module("." + basename, "backend.connectors")
+        if LOCAL_ENV:
+            module = import_module("." + basename, "backend.connectors")
+        else:
+            module = import_module("connectors." + basename)
         connectors[basename] = module.generate_handler
 
 

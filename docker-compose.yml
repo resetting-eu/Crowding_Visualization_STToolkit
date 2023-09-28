@@ -1,0 +1,65 @@
+services:
+  # Frontend (Next.js)
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+
+  # Backend (Python/Flask with WSGI server)
+  backend:
+    build: ./backend
+    environment:
+      CONFIG: config.yml
+    depends_on:
+      - mariadb
+      - influxdb
+      - mongodb
+      - memcached
+
+  # Nginx Reverse Proxy with TLS
+  nginx:
+    build:
+      dockerfile: nginxDockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - backend
+
+  # Memcached
+  memcached:
+    image: memcached:1.6.21
+    ports:
+      - "11211:11211"
+
+  # Databases
+  mariadb:
+    image: mariadb:11.1.2
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: auth
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  influxdb:
+    image: influxdb:1.8.10
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+
+  mongodb:
+    image: mongo:7.0.1
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+# Define named volumes for persistence
+volumes:
+  mariadb-data:
+  influxdb-data:
+  mongodb-data:

@@ -1,6 +1,9 @@
 import Head from 'next/head'
 
 export default function Home(props) {
+  if(typeof window !== 'undefined')
+    window.location.replace("/vodafone");
+
   return (
     <>
       <Head>
@@ -9,11 +12,6 @@ export default function Home(props) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main>
-        <p><a href="/vodafone">Vodafone</a></p>
-        <p><a href="/iscte">ISCTE</a></p>
-        <p><a href="/melbourne">Melbourne</a></p>
-      </main>
     </>
   )
 }
