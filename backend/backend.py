@@ -171,7 +171,7 @@ def delete_user():
     email = data.get('email')
 
     user = db.session.get(User, email)
-    if not is_admin(user) and user != current_user: # regular user can only delete itself
+    if not is_admin(current_user) and user != current_user: # regular user can only delete itself
         return response_unauthorized()
     if not user:
         return response_not_exists()
@@ -225,7 +225,7 @@ def change_role():
     if not user or not user.unique_token:
         return response_not_exists()
 
-    if current_user.role == Role.superuser:
+    if user.role == Role.superuser:
         return jsonify("Cannot change superuser role"), 400
     
     user.role = Role.admin if is_admin else Role.regular
