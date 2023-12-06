@@ -310,6 +310,16 @@ def derived_metrics_handler(handler, derived_metrics):
     return wrapped_handler
 
 
+def time_endpoint(f):
+    def timed_handler():
+        start_time = perf_counter()
+        res = f()
+        end_time = perf_counter()
+        print("backend total: {}".format(end_time - start_time), file=sys.stderr)
+        return res
+    timed_handler.__name__ = f.__name__ + "_timed"
+    return timed_handler
+
 ### Code to be executed on load
 
 # create database tables, if they don't exist
@@ -338,5 +348,6 @@ for name in cfg:
     derived_metrics = cfg[name].get("derived_metrics")
     if derived_metrics:
         handler = derived_metrics_handler(handler, derived_metrics)
+    handler = time_endpoint(handler)
     handler = login_required(handler)
     app.add_url_rule('/' + name, view_func=handler)
