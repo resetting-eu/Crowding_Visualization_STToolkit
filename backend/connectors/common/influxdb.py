@@ -1,11 +1,14 @@
 import influxdb_client
+from time import perf_counter
+import sys
 
 def query_range_str(bucket, start, end, every, locations, location_variable, filters):
     # TODO usar bind parameters em vez de espetar os params diretamente na query string
     res = 'from(bucket: "' + bucket + '")\
         |> range(start: ' + start + (', stop: ' + end if end else '') + ')'
-    for filter in filters:
-        res += '|> filter(fn: ' + filter + ')'
+    if filters:
+        for filter in filters:
+            res += '|> filter(fn: ' + filter + ')'
     if locations:
         locations_regex = '|'.join(map(lambda l: "^" + str(l) + "$", locations))
         res += '|> filter(fn: (r) => r["' + location_variable + '"] =~ /' + locations_regex + '/)'
@@ -35,7 +38,10 @@ def query(url, token, org, bucket, start, end, location_variable, metric_variabl
     with influxdb_client.InfluxDBClient(url=url, token=token, org=org, debug=False) as client:
         query_api = client.query_api()
         query_str = query_range_str(bucket, start, end, every, locations, location_variable, filters)
+        start_time = perf_counter()
         tables = query_api.query(query_str)
+        end_time = perf_counter()
+        print("query time: {}".format(end_time - start_time), file=sys.stderr)
         timestamps = set()
         values = {}
         for table in tables:
