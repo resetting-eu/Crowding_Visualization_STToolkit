@@ -347,16 +347,41 @@ def generate_flask_handler(f):
         return jsonify(res)
     return actual_handler
 
+def configure_metadata_handler_make_handler(name):
+    this_cfg = cfg["metadata"][name]
+    connector = import_connector(this_cfg["connector"])
+    handler = connector(this_cfg["parameters"])
+    handler = time_endpoint(handler)
+    return handler
+
+def configure_metadata_handler():
+    locations_handler = configure_metadata_handler_make_handler("locations")
+    parishes_handler = configure_metadata_handler_make_handler("parishes")
+    def metadata_handler(args):
+        res = {}
+        res["locations"] = locations_handler(args)
+        res["parishes"] = parishes_handler(args)
+        for x in cfg["metadata"]:
+            if x != "locations" and x != "parishes":
+                res[x] = cfg["metadata"][x]
+        return res
+    handler = generate_flask_handler(metadata_handler)
+    handler = login_required(handler)
+    app.add_url_rule("/metadata", view_func=handler)
+
 # instantiate endpoints as defined in configuration file
 for name in cfg:
-    assert name == "history" or name == "live" or name == "locations" # TODO verificar que locations existe e pelo menos um de (history,locations) existe e que não há repetições
-    connector = import_connector(cfg[name]["connector"])
-    handler = connector(cfg[name]["parameters"])
-    derived_metrics = cfg[name].get("derived_metrics")
-    if derived_metrics:
-        handler = derived_metrics_handler(handler, derived_metrics)
-    handler = time_endpoint(handler)
-    handler = generate_flask_handler(handler)
-    handler = login_required(handler)
-    handler.__name__ = handler.__name__ + "_" + name # flask requires handler functions to have unique names
-    app.add_url_rule('/' + name, view_func=handler)
+    assert name == "history" or name == "live" or name == "metadata" # TODO verificar que metadata existe e pelo menos um de (history,locations) existe e que não há repetições
+    if name == "metadata":
+        configure_metadata_handler()
+    else:
+        connector = import_connector(cfg[name]["connector"])
+        handler = connector(cfg[name]["parameters"])
+        derived_metrics = cfg[name].get("derived_metrics")
+        if derived_metrics:
+            handler = derived_metrics_handler(handler, derived_metrics)
+        handler = time_endpoint(handler)
+        handler = generate_flask_handler(handler)
+        handler = login_required(handler)
+        handler.__name__ = handler.__name__ + "_" + name # flask requires handler functions to have unique names
+        app.add_url_rule('/' + name, view_func=handler)

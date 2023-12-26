@@ -135,7 +135,6 @@ function DateTimeWidget(props) {
         label={props.label}
         value={dateObj}
         onChange={(newDateObj) => {
-          console.log(newDateObj);
           setDateObj(newDateObj);
           props.onChange(newDateObj.utc().format("YYYY-MM-DDTHH:mm:ss[Z]"));
         }} />
@@ -210,14 +209,12 @@ function gotoLoginIf401(response) {
     window.location.replace("/login");
 }
 
-function App({initialViewState, hasDensity, hasLive, measurements, columnRadius, locale, timezone, parishesFile}) {
-  if(!dayjsLocaleSet && locale) {
+function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, measurements, columnRadius, locale, timezone, parishesFile}) {
+  if(!dayjsLocaleSet && locale) { // TODO limpar/simplificar código
     dayjsSetLocaleAndTimezone(locale, timezone);
     dayjsLocaleSet = true;
   }
 
-  const [grid, setGrid] = useState(emptyGeoJson);
-  const [parishesMapping, setParishesMapping] = useState({});
   const [selectedParishes, setSelectedParishes] = useState([]);
   const [rawData, setRawData] = useState({});
   const [values, setValues] = useState([]);
@@ -227,21 +224,6 @@ function App({initialViewState, hasDensity, hasLive, measurements, columnRadius,
   const [cumHueDensityValues, setCumHueDensityValues] = useState(null);
 
   const nonSelectedParishes = Object.keys(parishesMapping).filter(p => !selectedParishes.includes(p));
-
-  useEffect(() => {
-    fetch(backendUrl + "/locations", {credentials: "include"})
-      .then(r => {gotoLoginIf401(r); return r.json()})
-      .then(data => {
-        data.sort((a, b) => a.properties.id - b.properties.id);
-        setGrid(data);
-      });
-    
-    if(parishesFile) {
-      fetch("/api/parishData?file=" + parishesFile)
-        .then(r => r.json())
-        .then(ps => setParishesMapping(ps));
-    }
-  }, []);
 
   const [start, setStart] = useState("2022-06-01T00:00:00Z");
   const [end, setEnd] = useState("2022-06-01T03:00:00Z");
@@ -318,7 +300,7 @@ function App({initialViewState, hasDensity, hasLive, measurements, columnRadius,
 
   function load() {
     changeStatus(statuses.loadingHistory);
-    const locations = parishesFile ? "&locations=" + locationsParameter() : "";
+    const locations = parishesMapping ? "&locations=" + locationsParameter() : "";
     const url = backendUrl + "/history" + "?start=" + start + "&end=" + end
       + "&every=" + everyNumber + everyUnit + locations;
     const start_date = Date.now();
@@ -478,17 +460,24 @@ function App({initialViewState, hasDensity, hasLive, measurements, columnRadius,
   }
 
   function gridDensity(location) {
-    if(!rawData.values)
-      return 0;
+    if(!rawData.values[measurement.name][location])
+      return null;
     const m = rawData.values[measurement.name][location];
     const value = m[selectedTimestamp];
     const cell = grid.find(c => c.properties.id === location);
-    return formatDensity(calcDensity(value, cell.properties.unusable_area));
+    return formatDensity(calcDensity(value, cell));
   }
 
-  function calcDensity(value, unusable_area) {
-    const usable_area = 200 * 200 - unusable_area; // TODO actually calculate area of square
-    const density = value / usable_area * 10000;
+  function usableArea(cell) {
+    if(cell.properties.usable_area !== undefined) {
+      return cell.properties.usable_area;
+    } else {
+      return 200 * 200 - cell.properties.unusable_area; // TODO actually calculate area of square
+    }
+  }
+
+  function calcDensity(value, cell) {
+    const density = value / usableArea(cell) * 10000;
     return density;
   }
 
@@ -514,7 +503,7 @@ function App({initialViewState, hasDensity, hasLive, measurements, columnRadius,
         continue;
       const squareMeasurements = data.values[measurement.name][square];
       const squareFeature = grid.find(s => s.properties.id === square);
-      totalUsableArea += 200 * 200 - squareFeature.properties.unusable_area;
+      totalUsableArea += usableArea(squareFeature);
       for(let i = 0; i < squareMeasurements.length; ++i) {
         const squareMeasurement = squareMeasurements[i] ? squareMeasurements[i] : 0;
         selectedSquaresCumValues[i] += squareMeasurement;
@@ -679,7 +668,7 @@ function App({initialViewState, hasDensity, hasLive, measurements, columnRadius,
   const [prismSize, setPrismSize] = useState(zoomToHeight(initialViewState.zoom));
 
   function measurementMax() {
-    return currentStatusIs(statuses.viewingHistory) && measurement.maxHistory ? measurement.maxHistory : measurement.max;
+    return currentStatusIs(statuses.viewingHistory) && measurement.capHistory ? measurement.capHistory : measurement.cap;
   }
 
   function calcElevation(id) {
@@ -696,7 +685,7 @@ function App({initialViewState, hasDensity, hasLive, measurements, columnRadius,
 
   function percentageForMeasurement(location) {
     const value = valueForHueMeasurement(location);
-    const percentage = Math.min(0.1, value / hueMeasurement.max / 10);
+    const percentage = Math.min(0.1, value / hueMeasurement.cap / 10);
     return percentage;
   }
 

@@ -1,7 +1,30 @@
 import Head from 'next/head'
-import App from '@/components/App'
 
-export default function Home(props) {
+import { useEffect, useState } from 'react';
+
+import App from '@/components/App'
+import Config from '@/components/Config'
+
+const backendUrl = Config.urlPrefix;
+
+export default function Home() {
+  const [metadata, setMetadata] = useState(null);
+
+  useEffect(() => {
+    fetch(backendUrl + "/metadata", {credentials: "include"})
+      .then(r => {
+        if(r.status === 401)
+          window.location.replace("/login");
+        return r.json()
+      }).then(metadata => {
+        metadata.locations.sort((a, b) => a.properties.id - b.properties.id);
+        metadata.grid = metadata.locations;
+        metadata.measurements = metadata.metrics;
+        metadata.parishesMapping = metadata.parishes;
+        setMetadata(metadata);
+      });
+  }, []);
+
   return (
     <>
       <Head>
@@ -18,7 +41,9 @@ export default function Home(props) {
           left: 0,
           right: 0,
           bottom: 0}}>
-          <App {...props} />
+          {metadata ?
+            <App {...metadata} />
+          : <p>Loading app...</p>}
         </div>
       </main>
     </>
