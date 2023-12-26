@@ -1,5 +1,4 @@
 from confluent_kafka import Consumer
-from flask import request, jsonify
 import json
 
 # ****************
@@ -8,13 +7,13 @@ import json
 def generate_handler(parameters):
     server = parameters["server"]
     topic = parameters["topic"]
-    def kafka_live_handler():
-        client_id = request.args.get("client_id")
+    def kafka_live_handler(args):
+        client_id = args.get("client_id")
         if client_id:
             client_id = int(client_id)
         else: # new client
             client_id = new_consumer(server, topic)
-        return jsonify(fetch(topic, client_id))
+        return fetch(topic, client_id)
     return kafka_live_handler
 
 # ****************

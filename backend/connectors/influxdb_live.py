@@ -1,4 +1,3 @@
-from flask import request, jsonify
 from .common.influxdb import query
 from .common.utils import parse_duration, parse_date, dt_to_string, uuid
 from .common.data import empty_response
@@ -18,8 +17,8 @@ def generate_handler(parameters):
     initial_time_offset = parameters["initial_time_offset"]
     interval = parameters["interval"]
     interval_td = parse_duration(interval)
-    def influxdb_live_handler():
-        client_id = request.args.get("client_id")
+    def influxdb_live_handler(args):
+        client_id = args.get("client_id")
         last_timestamp = clients_last_timestamp.get(client_id)
         if not last_timestamp:
             initial_time_offset_td = parse_duration(initial_time_offset)
@@ -39,7 +38,7 @@ def generate_handler(parameters):
                 res = query(url, token, org, bucket, start, None, location_variable, metric_variable, interval, None, filters)
                 keep_first_timestamp(res)
                 clients_last_timestamp[client_id] = res["timestamps"][0]
-        return jsonify(res)
+        return res
     return influxdb_live_handler
 
 def keep_first_timestamp(res):

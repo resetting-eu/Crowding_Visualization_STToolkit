@@ -1,4 +1,3 @@
-from flask import request, jsonify
 from .common.opendatasoft import query
 from .common.utils import parse_duration, dt_to_string, array_put_at, uuid, array_pad
 from datetime import datetime
@@ -13,8 +12,8 @@ def generate_handler(parameters):
     initial_time_offset = parse_duration(parameters["initial_time_offset"])
     metric_fields = parameters["metric_fields"]
     max_buffer_size = parameters["max_buffer_size"]
-    def opendatasoft_live_handler():
-        client_id = request.args.get("client_id")
+    def opendatasoft_live_handler(args):
+        client_id = args.get("client_id")
         client_info = clients_info.get(client_id)
         now_minus_offset = dt_to_string(datetime.utcnow() - initial_time_offset)
         if client_info:
@@ -37,7 +36,7 @@ def generate_handler(parameters):
         clients_info[client_id]["max_record_timestamp"] = max_record_timestamp
         clients_info[client_id]["timestamps"] = new_saved_timestamps(clients_info[client_id]["timestamps"], res["timestamps"], max_buffer_size)
         cap_res(res, calc_new_first_timestamp(clients_info[client_id]["timestamps"], res["timestamps"], max_buffer_size))
-        return jsonify(res)
+        return res
     return opendatasoft_live_handler
 
 # pre: len(saved_timestamps + res_timestamps) > 0

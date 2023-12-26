@@ -1,4 +1,3 @@
-from flask import jsonify
 from .common.influxdb import query_range_str
 from .common.utils import dt_to_string
 import influxdb_client
@@ -12,9 +11,9 @@ def generate_handler(parameters):
     filters = parameters.get("filters")
     start = dt_to_string(parameters["start"])
     latlong_variable = parameters["latlong_variable"]
-    def influxdb_locations_handler():
+    def influxdb_locations_handler(_):
         res = query_locations(url, token, org, bucket, start, location_variable, latlong_variable, filters)
-        return jsonify(res)
+        return res
     return influxdb_locations_handler
 
 def query_locations(url, token, org, bucket, start, location_variable, latlong_variable, filters=[]):

@@ -296,28 +296,24 @@ def user_list():
 connectors = {}
 
 # wrapper handler for derived metrics
-# TODO -- handlers should return res object instead of jsonified value, so that the wrappers don't need to parse the json
 def derived_metrics_handler(handler, derived_metrics):
-    def wrapped_handler():
+    def wrapped_handler(args):
         start_time = perf_counter()
-        res = json.loads(handler().get_data()) # inefficient: jsonify, parse, jsonify
+        res = handler(args)
         add_derived_metrics(res, derived_metrics)
         end_time = perf_counter()
         print("backend total, minus jsonify: {}".format(end_time - start_time), file=sys.stderr)
-        return jsonify(res)
-    # it is necessary to change the function's name if there is more than 1 wrapped handler configured
-    wrapped_handler.__name__ = handler.__name__ + "_with_derived_metrics"
+        return res
     return wrapped_handler
 
 
 def time_endpoint(f):
-    def timed_handler():
+    def timed_handler(args):
         start_time = perf_counter()
-        res = f()
+        res = f(args)
         end_time = perf_counter()
         print("backend total: {}".format(end_time - start_time), file=sys.stderr)
         return res
-    timed_handler.__name__ = f.__name__ + "_timed"
     return timed_handler
 
 ### Code to be executed on load
@@ -330,24 +326,37 @@ with app.app_context():
         create_first_user()
 
 # import connector modules
-for file in listdir("connectors"):
-    if file[-3:] == ".py" and file != "__init__.py":
-        basename = file[:-3]
-        if LOCAL_ENV:
-            module = import_module("." + basename, "backend.connectors")
-        else:
-            module = import_module("connectors." + basename)
-        connectors[basename] = module.generate_handler
+def import_connector(name):
+    if name in connectors:
+        return connectors[name]
 
+    for file in listdir("connectors"):
+        basename = file[:-3]
+        if basename == name and file.endswith(".py"):
+            if LOCAL_ENV:
+                module = import_module("." + basename, "backend.connectors")
+            else:
+                module = import_module("connectors." + basename)
+            connectors[name] = module.generate_handler
+            return connectors[name]
+
+# generates the actual handler function that is configured in flask
+def generate_flask_handler(f):
+    def actual_handler():
+        res = f(request.args)
+        return jsonify(res)
+    return actual_handler
 
 # instantiate endpoints as defined in configuration file
 for name in cfg:
     assert name == "history" or name == "live" or name == "locations" # TODO verificar que locations existe e pelo menos um de (history,locations) existe e que não há repetições
-    connector = connectors[cfg[name]["connector"]]
+    connector = import_connector(cfg[name]["connector"])
     handler = connector(cfg[name]["parameters"])
     derived_metrics = cfg[name].get("derived_metrics")
     if derived_metrics:
         handler = derived_metrics_handler(handler, derived_metrics)
     handler = time_endpoint(handler)
+    handler = generate_flask_handler(handler)
     handler = login_required(handler)
+    handler.__name__ = handler.__name__ + "_" + name # flask requires handler functions to have unique names
     app.add_url_rule('/' + name, view_func=handler)
