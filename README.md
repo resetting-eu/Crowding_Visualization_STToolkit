@@ -1,2 +1,2 @@
-# crowdingVisualization
-Geo-temporal Crowding Visualization Platform
+# Crowding Visualization STToolkit
+Smart Tourism Toolkit for geo-temporal crowding visualization solutions
