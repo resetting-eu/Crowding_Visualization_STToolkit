@@ -209,7 +209,9 @@ function gotoLoginIf401(response) {
     window.location.replace("/login");
 }
 
-function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, measurements, columnRadius, locale, timezone, parishesFile}) {
+let tC_start;
+
+function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, measurements, columnRadius, locale, timezone}) {
   if(!dayjsLocaleSet && locale) { // TODO limpar/simplificar código
     dayjsSetLocaleAndTimezone(locale, timezone);
     dayjsLocaleSet = true;
@@ -305,10 +307,13 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       + "&every=" + everyNumber + everyUnit + locations;
     const start_date = Date.now();
     fetch(url, {credentials: "include"})
-      .then(r => {gotoLoginIf401(r); return r.json()})
-      .then(data => {
+      .then(r => {
+        gotoLoginIf401(r);
         const end_date = Date.now();
-        console.log(`time: ${(end_date - start_date) / 1000}`);
+        console.log(`load time: ${(end_date - start_date) / 1000}`);
+        tC_start = Date.now();
+        return r.json()
+      }).then(data => {
         const setData = () => {
           changeStatus(statuses.viewingHistory);
           setRawData(data);
@@ -345,6 +350,9 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       changeSelectedTimestamp(rawData.timestamps.length - 1);
     else if(currentStatusIs(statuses.viewingHistory))
       changeSelectedTimestamp(0);
+
+    // TODO is this log useful? maybe place it somewhere after the rerendering caused by the state setters here
+    console.log(`post-load time: ${(Date.now() - tC_start) / 1000}`)
   }, [rawData]);
 
   const setNextTimeout = () => {
