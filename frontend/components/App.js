@@ -1,6 +1,7 @@
 import Map, {NavigationControl, useControl} from 'react-map-gl';
 import maplibregl from 'maplibre-gl';
 import { GeoJsonLayer } from '@deck.gl/layers';
+import {SimpleMeshLayer} from '@deck.gl/mesh-layers';
 
 import React, { useState, useEffect, createElement, useRef } from 'react';
 
@@ -38,7 +39,7 @@ import MapboxDrawStyles from './MapboxDrawStyles';
 
 import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
 
-import { dayjs, dayjsSetLocaleAndTimezone, concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage } from './Utils';
+import { dayjs, dayjsSetLocaleAndTimezone, concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage, subdivideRectangle, featureToPoints, pointsToFeature, gridToTriangulation, interpolate, lngLatToUtm, utmToLngLat, rectangleToTriangles, triangleNormal } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
@@ -209,6 +210,78 @@ function gotoLoginIf401(response) {
     window.location.replace("/login");
 }
 
+function gridToSubgrid(grid) {
+  const subgrid = [];
+  for(const feat of grid) {
+    const {points, ZoneNumber, ZoneLetter} = featureToPoints(feat);
+    const subdividedPoints = subdivideRectangle(...points);
+    for(let i = 0; i < 4; ++i) {
+      const subrectanglePoints = subdividedPoints.slice(i * 8, i * 8 + 8);
+      const newFeat = pointsToFeature(...subrectanglePoints, ZoneNumber, ZoneLetter);
+      subgrid.push(newFeat);
+    }
+  }
+  return subgrid;
+}
+
+function utmToMeshCoordsFactory(origX, origY) {
+  return (x, y) => [x - origX, y - origY];
+}
+
+let meshOrigin;
+
+function generateMesh(grid, getValue) {
+  const startTime = Date.now();
+
+  meshOrigin = center(grid[0]).geometry.coordinates;
+  const centerUtm = lngLatToUtm(...meshOrigin);
+  const utmToMeshCoords = utmToMeshCoordsFactory(...centerUtm);
+
+  const positions = [];
+  const normals = [];
+  const texCoords = [];
+  // use smaller grid during development:
+  // const subgrid = grid.filter(c => c.properties.id == 1 || c.properties.id == 13);
+  for(const cell of grid) {
+    const {points, ZoneNumber, ZoneLetter} = featureToPoints(cell);
+    const rectangles = subdivideRectangle(...points);
+    const triangles = [];
+    for(let i = 0; i < rectangles.length / 8; ++i) {
+      const ts = rectangleToTriangles(...(rectangles.slice(i * 8, i * 8 + 8)));
+      triangles.push(ts.slice(0, 6));
+      triangles.push(ts.slice(6, 12));
+    }
+    for(const triangle of triangles) {
+      const values = [];
+      let skipTriangle = false;
+      for(let i = 0; i < 6; i += 2) {
+        const lngLat = utmToLngLat(triangle[i], triangle[i + 1], ZoneLetter, ZoneNumber);
+        const value = getValue(...lngLat);
+        // if(value === undefined)
+        //   skipTriangle = true;
+        // values.push(value);
+        values.push(value !== undefined ? value : 0);
+      }
+      if(!skipTriangle) {
+        const finalTriangle = [];
+        for(let i = 0; i < 3; ++i) {
+          finalTriangle.push(...utmToMeshCoords(triangle[i * 2], triangle[i * 2 + 1]), values[i]);
+        }
+        positions.push(...finalTriangle);
+        for(let i = 0; i < 3; ++i) {
+          normals.push(...triangleNormal(...finalTriangle));
+        }
+        texCoords.push(0, 0, 0, 0, 0, 0, 0, 0, 0);
+      }
+    }
+  }
+
+  const timeTaken = (Date.now() - startTime) / 1000;
+  console.log(timeTaken);
+
+  return {positions: new Float32Array(positions), normals: new Float32Array(normals), texCoords: new Float32Array(texCoords)};
+}
+
 let tC_start;
 
 function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, measurements, columnRadius, locale, timezone}) {
@@ -217,6 +290,8 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     dayjsLocaleSet = true;
   }
 
+  const [mesh, setMesh] = useState({});
+  const [triangles, setTriangles] = useState(emptyGeoJson);
   const [selectedParishes, setSelectedParishes] = useState([]);
   const [rawData, setRawData] = useState({});
   const [values, setValues] = useState([]);
@@ -226,6 +301,35 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const [cumHueDensityValues, setCumHueDensityValues] = useState(null);
 
   const nonSelectedParishes = Object.keys(parishesMapping).filter(p => !selectedParishes.includes(p));
+
+
+  useEffect(() => {
+    setTriangles(gridToTriangulation(grid));
+  }, []);
+  
+  function interpolatedValueAt({lng, lat}) {
+    const p = point([lng, lat], {});
+    let triangle = null;
+    for(const t of triangles) {
+      if(booleanContains(t, p)) {
+        triangle = t;
+        break;
+      }
+    }
+    if(!triangle) {
+      return;
+    }
+    const ids = triangle.properties.ids;
+    const w1 = values[ids[0]];
+    const w2 = values[ids[1]];
+    const w3 = values[ids[2]];
+    if(!w1 || !w2 || !w3) {
+      return;
+    }
+    const coords = triangle.geometry.coordinates[0].slice(0, -1);
+    const v = interpolate(lng, lat, coords[0][0], coords[0][1], coords[1][0], coords[1][1], coords[2][0], coords[2][1], w1, w2, w3);
+    return v;
+  }
 
   const [start, setStart] = useState("2022-06-01T00:00:00Z");
   const [end, setEnd] = useState("2022-06-01T03:00:00Z");
@@ -354,6 +458,12 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     // TODO is this log useful? maybe place it somewhere after the rerendering caused by the state setters here
     console.log(`post-load time: ${(Date.now() - tC_start) / 1000}`)
   }, [rawData]);
+
+  useEffect(() => {
+    if(values[1] !== undefined) {
+      setMesh(generateMesh(grid, (lng, lat) => interpolatedValueAt({lng, lat})));
+    }
+  }, [values])
 
   const setNextTimeout = () => {
     if(currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.viewingLiveNotTracking))
@@ -728,6 +838,22 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       getFillColor: [selectedSquares]
     }
   });
+  // const subgridLayer = new GeoJsonLayer({
+  //   id: "subgrid",
+  //   data: subgrid,
+  //   filled: false,
+  //   getLineWidth: 1,
+  //   getLineColor: [255, 0, 0, 255],
+  // });
+  // const triangleLayer = new GeoJsonLayer({
+  //   id: "triangles",
+  //   data: triangles,
+  //   // pickable: true,
+  //   filled: false,
+  //   getLineWidth: 1,
+  //   getLineColor: [255, 0, 0, 255],
+  //   // onClick: (info, event) => console.log(info)
+  // });
   const prismLayer = new CustomColumnLayer({
     id: "columns",
     data: grid,
@@ -751,7 +877,14 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       getPosition: [showData, selectedSquares, values]
     }
   });
-  const layers = [geoJsonLayer, prismLayer];
+  const meshLayer = new SimpleMeshLayer({
+    id: 'mesh',
+    data: [0],
+    mesh: mesh,
+    getPosition: () => meshOrigin,
+    getColor: [100, 100, 100, 100],
+  });
+  const layers = [geoJsonLayer, /*prismLayer,*/ meshLayer];
 
   function fastBackward() {
     const prevMax = prevLocalMaxIndex(cumValues, selectedTimestamp);
@@ -881,7 +1014,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
         <Map mapLib={maplibregl} mapStyle={style}
           ref={mapRef}
           initialViewState={initialViewState}
-          onClick={(e) => !drawing && toggleSquare(e.lngLat)}
+          onClick={(e) => !drawing && toggleSquare(e.lngLat) /*console.log(interpolatedValueAt(e.lngLat))*/}
           onDblClick={(e) => e.preventDefault()}>
           <DeckGLOverlay layers={layers} effects={[lightingEffect]}
             getTooltip={(o) => o.picked && tooltip(o.object.properties.id)} />

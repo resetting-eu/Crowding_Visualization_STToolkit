@@ -4,6 +4,8 @@ import localizedFormat from "dayjs/plugin/localizedFormat";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import {center} from '@turf/turf';
+import Delaunator from 'delaunator';
+import {det, cross, norm} from 'mathjs';
 
 dayjs.extend(localizedFormat);
 dayjs.extend(timezonePlugin);
@@ -177,4 +179,169 @@ function getHslForPercentage(pct) {
 export function getRgbForPercentage(pct) {
   const [h, s, l] = getHslForPercentage(pct);
   return hslToRgb(h / 360, l / 100, s / 100);
+}
+
+export function lngLatToUtm(lng, lat) {
+  const utmRes = utm.convertLatLngToUtm(lat, lng, 10);
+  const point = [utmRes.Easting, utmRes.Northing];
+  return point;
+}
+
+export function utmToLngLat(x, y, zoneLetter, zoneNumber) {
+  const coords = utm.convertUtmToLatLng(x, y, zoneNumber, zoneLetter);
+  return [coords.lng, coords.lat];
+}
+
+function rectanglePointsToBoundaries(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y) {
+  let xleft, ytop, xright, ybot;
+  for(const x of [p1x, p2x, p3x, p4x]) {
+    if(xleft === undefined && xright === undefined) {
+      xleft = x;
+      xright = x;
+    } else if(x > xright) {
+      xright = x;
+    } else if(x < xleft) {
+      xleft = x;
+    }
+  }
+  for(const y of [p1y, p2y, p3y, p4y]) {
+    if(ybot === undefined && ytop === undefined) {
+      ybot = y;
+      ytop = y;
+    } else if(y > ytop) {
+      ytop = y;
+    } else if(y < ybot) {
+      ybot = y;
+    }
+  }
+  return {xleft, ytop, xright, ybot};
+}
+
+export function subdivideRectangle(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y) {
+  const {xleft, ytop, xright, ybot} = rectanglePointsToBoundaries(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y);
+  const xmid = (xleft + xright) / 2;
+  const ymid = (ybot + ytop) / 2;
+  return [
+    xleft, ybot, xmid, ybot, xmid, ymid, xleft, ymid,
+    xmid, ybot, xright, ybot, xright, ymid, xmid, ymid,
+    xleft, ymid, xmid, ymid, xmid, ytop, xleft, ytop,
+    xmid, ymid, xright, ymid, xright, ytop, xmid, ytop
+  ];
+}
+
+export function rectangleToTriangles(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y) {
+  const {xleft, ytop, xright, ybot} = rectanglePointsToBoundaries(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y);
+  return [
+    xleft, ybot, xright, ybot, xright, ytop,
+    xright, ytop, xleft, ytop, xleft, ybot
+  ];
+}
+
+// pre: feat.geometry.type === "Polygon" && feat.geometry.coordinates[0].length === 5
+export function featureToPoints(feat) {
+  console.assert(feat.geometry.type === "Polygon" && feat.geometry.coordinates[0].length === 5);
+
+  const points = [];
+  let ZoneNumber;
+  let ZoneLetter;
+  for(const coord of feat.geometry.coordinates[0].slice(0, -1)) {
+    const utmRes = utm.convertLatLngToUtm(coord[1], coord[0], 10);
+    points.push(utmRes.Easting);
+    points.push(utmRes.Northing);
+    if(ZoneNumber === undefined || ZoneLetter === undefined) {
+      ZoneNumber = utmRes.ZoneNumber;
+      ZoneLetter = utmRes.ZoneLetter;  
+    } else if(ZoneNumber != utmRes.ZoneNumber || ZoneLetter != utmRes.ZoneLetter) {
+      console.log("WARNING: Utils.featureToPoints: change in ZoneNumber or ZoneLetter!!!")
+      // TODO think about what to do in this situation
+    }
+  }
+  return {points, ZoneNumber, ZoneLetter};
+}
+
+export function pointsToFeature(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y, ZoneNumber, ZoneLetter) {
+  const coordinates = [];
+  for(const [x, y] of [[p1x, p1y], [p2x, p2y], [p3x, p3y], [p4x, p4y]]) {
+    const coords = utm.convertUtmToLatLng(x, y, ZoneNumber, ZoneLetter);
+    coordinates.push([coords.lng, coords.lat]);
+  }
+  coordinates.push(coordinates[0]);
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Polygon",
+      coordinates: [coordinates]
+    }
+  };
+}
+
+export function gridToTriangulation(grid) {
+  const points = [];
+  const gridWithCenters = [];
+  for(const feat of grid) {
+    const c = center(feat).geometry.coordinates;
+    const featWithCenter = {
+      type: "Feature",
+      properties: {id: feat.properties.id, center: c},
+      geometry: feat.geometry
+    }
+    gridWithCenters.push(featWithCenter);
+    const utmRes = utm.convertLatLngToUtm(c[0], c[1], 10);
+    const point = [utmRes.Easting, utmRes.Northing];
+    points.push(point);
+  }
+  const delaunay = Delaunator.from(points);
+  const triangles = delaunay.triangles;
+  const features = [];
+  for(let i = 0; i < triangles.length; i += 3) {
+    features.push({
+      type: "Feature",
+      properties: {
+        ids: [
+          gridWithCenters[triangles[i]].properties.id,
+          gridWithCenters[triangles[i + 1]].properties.id,
+          gridWithCenters[triangles[i + 2]].properties.id,
+        ]},
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            gridWithCenters[triangles[i]].properties.center,
+            gridWithCenters[triangles[i + 1]].properties.center,
+            gridWithCenters[triangles[i + 2]].properties.center,
+            gridWithCenters[triangles[i]].properties.center
+          ]
+        ]
+      }
+    });
+  }
+  return features;
+}
+
+// TODO: acrescentar referência ao paper
+export function interpolate(lng, lat, lng1, lat1, lng2, lat2, lng3, lat3, w1, w2, w3) {
+  const [x, y] = lngLatToUtm(lng, lat);
+  const [x1, y1] = lngLatToUtm(lng1, lat1);
+  const [x2, y2] = lngLatToUtm(lng2, lat2);
+  const [x3, y3] = lngLatToUtm(lng3, lat3);
+
+  const m = [
+    [1, x1, y1],
+    [1, x2, y2],
+    [1, x3, y3]
+  ];
+  const a = det(m) / 2;
+  const n1 = ((x2*y3 - x3*y2) + x*(y2 - y3) + y*(x3 - x2)) / (2 * a);
+  const n2 = ((x3*y1 - x1*y3) + x*(y3 - y1) + y*(x1 - x3)) / (2 * a);
+  const n3 = ((x1*y2 - x2*y1) + x*(y1 - y2) + y*(x2 - x1)) / (2 * a);
+  return n1*w1 + n2*w2 + n3*w3;
+}
+
+export function triangleNormal(p1x, p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z) {
+  const ab = [p2x - p1x, p2y - p1y, p2z - p1z];
+  const ac = [p3x - p1x, p3y - p1y, p3z - p1z];
+  const n = cross(ab, ac);
+  const n_normalized = n.map(x => x / norm(n));
+  return n_normalized;
 }
