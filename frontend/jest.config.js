@@ -13,7 +13,12 @@ const customJestConfig = {
   // setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 
   testEnvironment: 'jest-environment-jsdom',
-  moduleDirectories: ['<rootDir>/node_modules', '<rootDir>/components', '<rootDir>/src/pages'],
+  moduleDirectories: ['<rootDir>/node_modules', '<rootDir>/components', '<rootDir>/pages'],
+  moduleNameMapper: { // see https://stackoverflow.com/questions/69075510/jest-tests-failing-on-d3-import
+    "d3-(voronoi|geo)": "<rootDir>/node_modules/d3-$1/",
+    "^d3-(.*)$": "<rootDir>/node_modules/d3-$1/dist/d3-$1.min.js"
+  },
+  
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
