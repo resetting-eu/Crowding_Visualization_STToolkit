@@ -9,23 +9,25 @@ services:
   backend:
     build: ./backend
     environment:
-      CONFIG: config.yml
+      CONFIG: /backend/config/config.yml
     depends_on:
       - mariadb
-      - influxdb
-      - mongodb
       - memcached
+    volumes:
+      - ./config/:/backend/config/
 
   # Nginx Reverse Proxy with TLS
   nginx:
-    build:
-      dockerfile: nginxDockerfile
+    image: nginx:1.25
     ports:
       - "80:80"
       - "443:443"
     depends_on:
       - frontend
       - backend
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl/:/etc/nginx/ssl/ # make sure to put cert and key in ./ssl
 
   # Memcached
   memcached:
@@ -36,30 +38,32 @@ services:
   # Databases
   mariadb:
     image: mariadb:11.1.2
-    environment:
+    environment: # CHANGE THESE VARIABLES!
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: auth
       MYSQL_USER: admin
       MYSQL_PASSWORD: admin
+    ports:
+      - "3306:3306"
     volumes:
       - mariadb-data:/var/lib/mysql
 
-  influxdb:
-    image: influxdb:1.8.10
-    ports:
-      - "8086:8086"
-    volumes:
-      - influxdb-data:/var/lib/influxdb
+  # influxdb:
+  #   image: influxdb:1.8.10
+  #   ports:
+  #     - "8086:8086"
+  #   volumes:
+  #     - influxdb-data:/var/lib/influxdb
 
-  mongodb:
-    image: mongo:7.0.1
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb-data:/data/db
+  # mongodb:
+  #   image: mongo:7.0.1
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongodb-data:/data/db
 
 # Define named volumes for persistence
 volumes:
   mariadb-data:
-  influxdb-data:
-  mongodb-data:
+  # influxdb-data:
+  # mongodb-data:

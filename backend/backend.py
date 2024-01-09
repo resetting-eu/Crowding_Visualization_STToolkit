@@ -120,10 +120,11 @@ def create_first_user():
 
 def send_activation_email(uuid, email):    
     subject = "crowdingVisualization activation link"
-    body = "Activation link: http://localhost:3000/activate?email={}&uuid={}".format(email, uuid)
+    body = "Activation link: http://localhost:3000/activate?email={}&uuid={}".format(email, uuid) # TODO hostname configuration
     sender = cfg_auth["email_sender"]
     password = cfg_auth["email_password"]
-    send_email(subject, body, sender, email, password)
+    print(body, file=sys.stderr)
+    # send_email(subject, body, sender, email, password) # TODO uncomment
 
 def is_admin(user):
     return user.role in (Role.superuser, Role.admin)

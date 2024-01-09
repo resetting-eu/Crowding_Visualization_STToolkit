@@ -1,0 +1,53 @@
+history:
+  connector: influxdb_history
+  parameters:
+    url: <INFLUXDB_URL>
+    token: <INFLUXDB_TOKEN>
+    org: <INFLUXDB_ORG>
+    bucket: <INFLUXDB_BUCKET>
+    metric_variable: _field # if omitted, assumes there is only one metric
+    location_variable: _measurement
+    filters: # following is an example filter that selects only certain metric names
+      - (r) => r["_field"] =~ /^C1$|^C2$|^C3$|^C4$|^C5$|^C6$|^C7$|^C8$|^C9$|^C10$|^C11$|^E1$|^E2$|^E3$|^E4$|^E5$|^E7$|^E8$|^E9$|^E10$/
+
+metadata:
+  locations:
+    connector: mongodb_locations
+    parameters:
+      url: <MONGODB_URL>
+      collection: <MONGODB_COLLECTION>
+      unusable_area_property: unusable_area # change this as needed
+  parishes:
+    connector: static # use this to serve documents without needing MongoDB
+    parameters:
+      path: /backend/config/<FILENAME>
+  # the following options are related to visualization properties
+  locale: pt
+  timezone: Europe/Lisbon
+  initialViewState:
+    longitude: -9.22502725720
+    latitude: 38.69209409900
+    zoom: 15
+    pitch: 30
+  hasDensity: true # requires usable_area or unusable_area in the locations' properties
+  hasLive: false # if set to true, it's necessary to configure the "live" endpoint, as done with "history" above
+  columnRadius: 12
+  metrics:
+    - name: "C1"
+      description: "Number of distinct devices"
+      shortDescription: "all devices"
+      unit: "devices"
+      cap: 1000 # represents a very high value; values higher than this are assigned maximum height in the main visualization
+    - name: "C2"
+      description: "Number of distinct roaming devices"
+      shortDescription: "roaming"
+      unit: "devices"
+      cap: 100
+
+auth:
+  database_uri: mysql://user:password@mariadb:3306/auth
+  initial_user: admin@myorg.com
+  initial_password: admin
+  secret_key: <SECRET_KEY> # generate with: python -c 'import secrets; print(secrets.token_hex())'
+  email_sender: noreply@myorg.com
+  email_password: <EMAIL_PASSWORD> # see https://mailtrap.io/blog/python-send-email-gmail/
