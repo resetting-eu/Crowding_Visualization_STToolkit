@@ -43,6 +43,7 @@ import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
 import CustomColumnLayer from './CustomColumnLayer';
+import CoordinatesPane from './CoordinatesPane';
 
 import dynamic from 'next/dynamic';
 
@@ -901,6 +902,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
         </Map>
         <ZoomChangeListener map={mapRef.current} onChange={onChangeZoom} />
       </div>
+      <CoordinatesPane mapRef={mapRef} />
       <LineChart hasDensity={hasDensity} timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} heightMeasurementDescription={heightMeasurementDescription} hueMeasurementDescription={hueMeasurementDescription} />
     </div>
   );
