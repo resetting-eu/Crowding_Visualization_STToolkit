@@ -28,7 +28,7 @@ import ManageHistoryIcon from '@mui/icons-material/ManageHistory';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import Typography from '@mui/material/Typography';
-import Autocomplete from '@mui/material/Autocomplete';
+import Switch from '@mui/material/Switch';
 
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
@@ -227,7 +227,6 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     dayjsLocaleSet = true;
   }
 
-  const [selectedParishes, setSelectedParishes] = useState([]);
   const [rawData, setRawData] = useState({});
   const [values, setValues] = useState([]);
   const [cumValues, setCumValues] = useState([]);
@@ -235,12 +234,13 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const [cumHueValues, setCumHueValues] = useState(null);
   const [cumHueDensityValues, setCumHueDensityValues] = useState(null);
 
-  const nonSelectedParishes = Object.keys(parishesMapping).filter(p => !selectedParishes.includes(p));
+  const [parishValue, setParishValue] = useState("");
 
   const [start, setStart] = useState("2022-06-01T00:00:00Z");
   const [end, setEnd] = useState("2022-06-01T03:00:00Z");
   const [everyNumber, setEveryNumber] = useState("1");
   const [everyUnit, setEveryUnit] = useState("h");
+  const [loadSelectedSquaresOnly, setLoadSelectedSquaresOnly] = useState(false);
 
   const [selectedTimestamp, setSelectedTimestamp] = useState(0);
 
@@ -303,13 +303,11 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const loadingHistory = currentStatusIs(statuses.loadingHistory);
 
   function locationsParameter() {
-    const locations = new Set();
-    for(const selectedParishName of selectedParishes) {
-      for(const loc of parishesMapping[selectedParishName]) {
-        locations.add(loc);
-      }
+    if(loadSelectedSquaresOnly) {
+      return selectedSquares.join(",");
+    } else {
+      return "";
     }
-    return [...locations].join(",");
   }
 
   function load() {
@@ -821,15 +819,26 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     setPrismSize(zoomToHeight(zoom));
   }
 
+  function selectParish(parishSquares) {
+    if(parishSquares) {
+      setSelectedSquares([...selectedSquares, ...parishSquares]);
+      setParishValue("");  
+    }
+  }
+
   return (
     <div>
       <StatusPane status={status} />
       <Toolbar freeze={freezeToolbar} panes={[
         {title: "Select parishes", icon: <MapIcon/>, content:
-          <>
-            <Autocomplete multiple options={nonSelectedParishes} value={selectedParishes} onChange={(_, p) => setSelectedParishes(p)} renderInput={(params) => (<TextField {...params}/>)} />
-            <Typography>Only data from the selected parishes will be loaded</Typography>
-          </>},
+          <Stack direction="row" spacing={2} sx={{verticalAlign: "middle"}}>
+            <TextField select label="Parish" value={parishValue} onChange={change(setParishValue)} sx={{minWidth: 200}} >
+              {Object.keys(parishesMapping).map(parishName => (
+                <MenuItem value={parishName} key={parishName}>{parishName}</MenuItem>
+              ))}
+            </TextField>
+            <Button variant="contained" onClick={() => selectParish(parishesMapping[parishValue])}>Select</Button>
+          </Stack>},
         {title: "Visualization options", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
             <TextField select label="Height" sx={{width: 100}} value={measurement} onChange={changeMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
@@ -866,6 +875,10 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
                 <MUITooltip title="Interval defines the time window that will be used to aggregate and average the data">
                   <HelpIcon />
                 </MUITooltip>
+              </span>
+              <span style={{position: "relative", top: "10px", left: "65px"}}>
+                <Switch checked={loadSelectedSquaresOnly} onChange={e => setLoadSelectedSquaresOnly(e.target.checked)} />
+                <Typography component="span">Selected locations only</Typography>
               </span>
             </Stack>
             <div style={{position: "relative", width: "100%", textAlign: "center"}}>
