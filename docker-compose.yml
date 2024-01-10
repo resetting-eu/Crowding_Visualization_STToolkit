@@ -32,8 +32,6 @@ services:
   # Memcached
   memcached:
     image: memcached:1.6.21
-    ports:
-      - "11211:11211"
 
   # Databases
   mariadb:
@@ -43,8 +41,6 @@ services:
       MYSQL_DATABASE: auth
       MYSQL_USER: admin
       MYSQL_PASSWORD: admin
-    ports:
-      - "3306:3306"
     volumes:
       - mariadb-data:/var/lib/mysql
 
