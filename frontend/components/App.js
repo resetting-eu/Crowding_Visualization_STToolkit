@@ -245,8 +245,10 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const [selectedTimestamp, setSelectedTimestamp] = useState(0);
 
   function changeSelectedTimestamp(value) {
-    setSelectedTimestamp(value);
-    setValues(valuesToVisualize(rawData, value, measurement));
+    if(rawData.values) {
+      setSelectedTimestamp(value);
+      setValues(valuesToVisualize(rawData, value, measurement));  
+    }
   }
 
   function change(setter) {
