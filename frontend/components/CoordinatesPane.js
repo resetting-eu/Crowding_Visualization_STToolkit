@@ -22,7 +22,7 @@ function CoordinatesPane({mapRef}) {
   }
 
   return (
-    <div style={{position: "absolute", bottom: "30px", right: "20px", zIndex: 200, padding: "5px 15px 5px 15px",  borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+    <div style={{position: "absolute", bottom: "70px", right: "20px", zIndex: 200, padding: "5px 15px 5px 15px",  borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
       <Typography>Longitude: {cursorLongitude}</Typography>
       <Typography>Latitude: {cursorLatitude}</Typography>
     </div>

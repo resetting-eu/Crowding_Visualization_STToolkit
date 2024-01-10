@@ -1,4 +1,4 @@
-import Map, {NavigationControl, useControl} from 'react-map-gl';
+import Map, {ScaleControl, useControl} from 'react-map-gl';
 import maplibregl from 'maplibre-gl';
 import { GeoJsonLayer } from '@deck.gl/layers';
 
@@ -914,6 +914,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
           {/* <NavigationControl /> */}
           {drawControlOn && 
             <DrawControl onFinish={drawingFinished} />}
+          <ScaleControl position="bottom-right" />
         </Map>
         <ZoomChangeListener map={mapRef.current} onChange={onChangeZoom} />
       </div>
