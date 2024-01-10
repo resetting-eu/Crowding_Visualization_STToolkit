@@ -91,10 +91,19 @@ function DrawControl({onFinish}) {
     console.assert(features.length === 1);
     onFinish(features[0]);
   };
+  const drawDeleteCallback = () => {
+    onFinish(null);
+  }
   useControl(
     () => draw,
-    ({map}) => map.on("draw.create", drawCreateCallback),
-    ({map}) => map.off("draw.create", drawCreateCallback),
+    ({map}) => {
+      map.on("draw.create", drawCreateCallback);
+      map.on("draw.modechange", drawDeleteCallback);
+    },
+    ({map}) => {
+      map.off("draw.create", drawCreateCallback);
+      map.off("draw.modechange", drawDeleteCallback);
+    },
     {});
   return null;
 }
@@ -539,17 +548,18 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
 
   function drawingFinished(polygon) {
     setTimeout(() => {
-      let squares = []; // squares that intersect the polygon
-      for(let i = 0; i < grid.length; ++i) {
-        const s = grid[i];
-        if(booleanIntersects(polygon, s)) {
-          squares.push(s.properties.id);
+      if(polygon) {
+        let squares = []; // squares that intersect the polygon
+        for(let i = 0; i < grid.length; ++i) {
+          const s = grid[i];
+          if(booleanIntersects(polygon, s)) {
+            squares.push(s.properties.id);
+          }
         }
+        const selectedSquaresWithDups = [...selectedSquares, ...squares];
+        const selectedSquaresSet = new Set(selectedSquaresWithDups);
+        setSelectedSquares([...selectedSquaresSet]);
       }
-      const selectedSquaresWithDups = [...selectedSquares, ...squares];
-      const selectedSquaresSet = new Set(selectedSquaresWithDups);
-      setSelectedSquares([...selectedSquaresSet]);
-  
       setDrawing(false);  
     }, 0);
   }
