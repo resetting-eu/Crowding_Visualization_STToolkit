@@ -52,7 +52,7 @@ function Toolbar({panes, freeze}) {
         <div style={{position: "absolute", left: 2, top: 65, zIndex: 200, padding: "5px 15px 5px 15px",  borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
           <ToggleButtonGroup>
             {panes.map(({title, icon}) => 
-              <ToggleButtonWithLabel value={title} icon={icon} />)}
+              <ToggleButtonWithLabel key={title} value={title} icon={icon} />)}
           </ToggleButtonGroup>
         </div>}
       {pane &&
