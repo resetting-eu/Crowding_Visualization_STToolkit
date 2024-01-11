@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 
-import SpeedDial from '@mui/material/SpeedDial';
-import SpeedDialIcon from '@mui/material/SpeedDialIcon';
-import SpeedDialAction from '@mui/material/SpeedDialAction';
+import Button from '@mui/material/Button';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import ToggleButton from '@mui/material/ToggleButton';
+import Typography from '@mui/material/Typography';
 
 import Pane from './Pane';
 
@@ -32,11 +33,28 @@ function Toolbar({panes, freeze}) {
     }
   }, [freeze]);
 
+  const ToggleButtonWithLabel = ({ value, icon }) => {
+    const selected = pane === value;
+    return (
+      <div style={{textAlign: "center", width: 80}}>
+        <ToggleButton value={value} aria-label={value} onChange={(_,v) => setPane(selected ? null : value)} selected={selected}>
+          {icon}
+        </ToggleButton>
+        <Typography variant="body2" sx={{wordWrap: "break-word"}}>{value}</Typography>
+      </div>
+    );
+  };
+  
   return (
     <>
-      <SpeedDial ariaLabel="Toolbar" icon={<SpeedDialIcon/>} direction="down" sx={{position: "absolute", top: 0, left: 0, zIndex: 100}} onOpen={() => !freeze && setOpen(true)} onClose={() => setOpen(false)} open={open}>
-        {panes.map(({title, icon}) => <SpeedDialAction icon={icon} key={title} tooltipTitle={title} onClick={() => setPane(title)}/>)}
-      </SpeedDial>
+      <Button variant="contained" onClick={() => setOpen(!open)} sx={{position: "absolute", top: 5, left: 2, zIndex: 100, padding: "0px 0px", minWidth: 55, minHeight: 50}}>MENU</Button>
+      {open &&
+        <div style={{position: "absolute", left: 2, top: 65, zIndex: 200, padding: "5px 15px 5px 15px",  borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
+          <ToggleButtonGroup>
+            {panes.map(({title, icon}) => 
+              <ToggleButtonWithLabel value={title} icon={icon} />)}
+          </ToggleButtonGroup>
+        </div>}
       {pane &&
         <Pane title={pane} onClose={() => setPane(null)} closeable={paneIsCloseable}>
           {paneObj.content}
