@@ -36,7 +36,7 @@ function Toolbar({panes, freeze}) {
   const ToggleButtonWithLabel = ({ value, icon }) => {
     const selected = pane === value;
     return (
-      <div style={{textAlign: "center", width: 80}}>
+      <div style={{textAlign: "center", width: 90}}>
         <ToggleButton value={value} aria-label={value} onChange={(_,v) => setPane(selected ? null : value)} selected={selected}>
           {icon}
         </ToggleButton>
