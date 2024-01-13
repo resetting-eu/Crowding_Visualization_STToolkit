@@ -17,5 +17,8 @@ COPY . .
 # Expose the port that uWSGI will use
 EXPOSE 5000
 
+# Used to ensure the backend is run only after mariadb connection is available
+RUN chmod a+x wait-for-it.sh
+
 # Command to start the uWSGI server
-CMD ["uwsgi", "-w", "backend:app", "-s", ":5000"]
+CMD ["./wait-for-it.sh", "mariadb:3306", "--", "uwsgi", "-w", "backend:app", "-s", ":5000"]
