@@ -830,7 +830,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     <div>
       <StatusPane status={status} />
       <Toolbar freeze={freezeToolbar} panes={[
-        {title: "Select parishes", icon: <MapIcon/>, content:
+        {title: "Parishes", icon: <MapIcon/>, content:
           <Stack direction="row" spacing={2} sx={{verticalAlign: "middle"}}>
             <TextField select label="Parish" value={parishValue} onChange={change(setParishValue)} sx={{minWidth: 200}} >
               {Object.keys(parishesMapping).map(parishName => (
@@ -839,7 +839,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
             </TextField>
             <Button variant="contained" onClick={() => selectParish(parishesMapping[parishValue])}>Select</Button>
           </Stack>},
-        {title: "Visualization options", icon: <SettingsIcon/>, content:
+        {title: "Settings", icon: <SettingsIcon/>, content:
           <Stack direction="row" spacing={2}>
             <TextField select label="Height" sx={{width: 100}} value={measurement} onChange={changeMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
               {measurements.map(m => (
@@ -888,7 +888,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
         {title: "Points", icon: <TroubleshootIcon/>, content:
           <p>Not implemented yet</p>
         },
-        {title: "Manage account", icon: <ManageAccountsIcon />, content:
+        {title: "Account", icon: <ManageAccountsIcon />, content:
           <Button variant="contained" onClick={() => window.location.replace("/account")}>Account page</Button>
         }]} />
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
