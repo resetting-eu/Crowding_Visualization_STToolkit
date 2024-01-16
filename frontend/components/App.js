@@ -708,11 +708,19 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     return percentage;
   }
 
+  function getRgbForPrismMappedToDensity(location) {
+    const magicFactor = 0.4; // TODO make this configurable
+    const maxDensity = measurement.cap * magicFactor;
+    const density = gridDensity(location); // units per hectare
+    const pct = Math.min(0.1 * density / maxDensity, 0.1);
+    return getRgbForPercentage(pct);
+  }
+
   function calcPrismColor(location) {
     if(!rawData.values[measurement.name][location])
       return null;
     if(hueMeasurement.name == "Density")
-      return getRgbForPercentage(gridDensity(location) / 10000);
+      return getRgbForPrismMappedToDensity(location);
     else if(hueMeasurement.name == "None")
       return [0, 0, 100];
     else
