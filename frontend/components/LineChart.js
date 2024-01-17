@@ -56,26 +56,24 @@ function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueV
 
   return (
     visible ?
-      <Draggable>
-        <div style={{position: "absolute", bottom: "20px", left: "20px", height: "240px", width: "400px", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)", padding: "5px 15px 15px 15px", borderRadius: "25px"}}>
-          <div style={{display: "flex", justifyContent: "space-between"}}>
-            {hasDensity &&
-              <span>
-                <Typography component="span">Absolute</Typography>
-                <Switch size="small" checked={visualization === "density"} onChange={e => setVisualization(e.target.checked ? "density" : "absolute")} />
-                <Typography component="span">Density</Typography>
-              </span>}
+      <div style={{position: "absolute", bottom: "20px", left: "20px", height: "240px", width: "400px", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)", padding: "5px 15px 15px 15px", borderRadius: "25px"}}>
+        <div style={{display: "flex", justifyContent: "space-between"}}>
+          {hasDensity &&
             <span>
-              <IconButton onClick={() => setVisible(false)}>
-                <CloseIcon />
-              </IconButton>
-            </span>
-          </div>
-          <Line
-            data={data}
-            options={options} />
+              <Typography component="span">Absolute</Typography>
+              <Switch size="small" checked={visualization === "density"} onChange={e => setVisualization(e.target.checked ? "density" : "absolute")} />
+              <Typography component="span">Density</Typography>
+            </span>}
+          <span>
+            <IconButton onClick={() => setVisible(false)}>
+              <CloseIcon />
+            </IconButton>
+          </span>
         </div>
-      </Draggable>
+        <Line
+          data={data}
+          options={options} />
+      </div>
     :
       <Fab sx={{position: "fixed", left: 20, bottom: 20}} onClick={() => setVisible(!visible)}>
         <TimelineIcon/>
