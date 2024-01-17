@@ -57,7 +57,7 @@ function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueV
   return (
     visible ?
       <Draggable>
-        <div style={{position: "absolute", bottom: "20px", left: "20px", height: "240px", width: "30%", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)", padding: "5px 15px 15px 15px", borderRadius: "25px"}}>
+        <div style={{position: "absolute", bottom: "20px", left: "20px", height: "240px", width: "400px", zIndex: 100, backgroundColor: "rgba(224, 224, 224, 1.0)", padding: "5px 15px 15px 15px", borderRadius: "25px"}}>
           <div style={{display: "flex", justifyContent: "space-between"}}>
             {hasDensity &&
               <span>
