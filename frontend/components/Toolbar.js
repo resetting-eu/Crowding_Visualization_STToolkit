@@ -56,7 +56,7 @@ function Toolbar({panes, freeze}) {
           </ToggleButtonGroup>
         </div>}
       {pane &&
-        <Pane title={pane} onClose={() => setPane(null)} closeable={paneIsCloseable}>
+        <Pane title={pane} onClose={() => setPane(null)} closeable={paneIsCloseable} description={paneObj.description}>
           {paneObj.content}
         </Pane>}
     </>

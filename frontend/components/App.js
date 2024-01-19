@@ -15,15 +15,16 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
+import FastForwardIcon from '@mui/icons-material/FastForward';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import IconButton from '@mui/material/IconButton';
-import MapIcon from '@mui/icons-material/Map';
+import SelectAllIcon from '@mui/icons-material/SelectAll';
 import TextField from '@mui/material/TextField';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import SettingsIcon from '@mui/icons-material/Settings';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import ManageHistoryIcon from '@mui/icons-material/ManageHistory';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
@@ -838,34 +839,9 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     <div>
       <StatusPane status={status} />
       <Toolbar freeze={freezeToolbar} panes={[
-        {title: "Parishes", icon: <MapIcon/>, content:
-          <Stack direction="row" spacing={2} sx={{verticalAlign: "middle"}}>
-            <TextField select label="Parish" value={parishValue} onChange={change(setParishValue)} sx={{minWidth: 200}} >
-              {Object.keys(parishesMapping).map(parishName => (
-                <MenuItem value={parishName} key={parishName}>{parishName}</MenuItem>
-              ))}
-            </TextField>
-            <Button variant="contained" onClick={() => selectParish(parishesMapping[parishValue])}>Select</Button>
-          </Stack>},
-        {title: "Settings", icon: <SettingsIcon/>, content:
-          <Stack direction="row" spacing={2}>
-            <TextField select label="Height" sx={{width: 100}} value={measurement} onChange={changeMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
-              {measurements.map(m => (
-                <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
-              ))}
-            </TextField>
-            <TextField select label="Hue" sx={{width: 120}} value={hueMeasurement} onChange={changeHueMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
-                {hueMeasurements.map(m => (
-                  <MenuItem value={m} key={m.name}>{m.description ? m.name + " - " + m.description : m.name}</MenuItem>
-                ))}
-            </TextField>
-            <IconButtonWithTooltip tooltip={animateToggleButtonTooltip} onClick={toggleAnimate} iconComponent={animateIconComponent} />
-            <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={animating} />
-            <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} disabled={animating} />
-            <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
-            <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
-          </Stack>},
-          {title: "History", icon: <ManageHistoryIcon/>, stayOnFreeze: true, content:
+        {title: "History", icon: <ManageHistoryIcon/>, stayOnFreeze: true,
+         description: "Load historical data into the application (note that for this demonstration all parameters are ignored).", // TODO remove note after demo
+         content:
           <Stack spacing={2}>
             <Stack direction="row" spacing={2}>
               <DateTimeWidget label="Start" value={start} onChange={setStart} disabled={loadingHistory} timezone={timezone} />
@@ -893,10 +869,50 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
               {loadingHistory ? <Button variant="contained">Cancel</Button> : <Button variant="contained" onClick={load}>Load</Button>}
             </div>
           </Stack>},
-        {title: "Points", icon: <TroubleshootIcon/>, content:
+        {title: "Selection", icon: <SelectAllIcon/>,
+        description: "Select the area of interest that will be considered for the line chart and for the slider color gradient.",
+        content:
+          <Stack direction="row" spacing={2} sx={{verticalAlign: "middle"}}>
+            <IconButtonWithTooltip tooltip="Draw area of interest" onClick={() => setDrawing(true)} iconComponent={EditIcon} />
+            <IconButtonWithTooltip tooltip="Clear selection" onClick={() => setSelectedSquares([])} iconComponent={DeleteIcon} />
+            <TextField select label="Parish" value={parishValue} onChange={change(setParishValue)} sx={{minWidth: 200}} >
+              {Object.keys(parishesMapping).map(parishName => (
+                <MenuItem value={parishName} key={parishName}>{parishName}</MenuItem>
+              ))}
+            </TextField>
+            <Button variant="contained" onClick={() => selectParish(parishesMapping[parishValue])}>Select Parish</Button>
+          </Stack>},
+        {title: "Metrics", icon: <AssessmentIcon/>,
+        description: "Select which metrics are mapped onto which properties of the cylinders. If 'Density' is selected for Hue, the locations' carrying capacities are considered.",
+        content:
+          <Stack direction="row" spacing={2}>
+            <TextField select label="Height" sx={{width: 100}} value={measurement} onChange={changeMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
+              {measurements.map(m => (
+                <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
+              ))}
+            </TextField>
+            <TextField select label="Hue" sx={{width: 120}} value={hueMeasurement} onChange={changeHueMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
+                {hueMeasurements.map(m => (
+                  <MenuItem value={m} key={m.name}>{m.description ? m.name + " - " + m.description : m.name}</MenuItem>
+                ))}
+            </TextField>
+          </Stack>},
+        {title: "Seek", icon: <FastForwardIcon/>,
+        description: "Options for automatic navigation of the temporal dimension.",
+        content:
+          <Stack direction="row" spacing={2}>
+            <IconButtonWithTooltip tooltip={animateToggleButtonTooltip} onClick={toggleAnimate} iconComponent={animateIconComponent} />
+            <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={animating} />
+            <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} disabled={animating} />
+          </Stack>},
+        {title: "Points", icon: <TroubleshootIcon/>,
+        description: "Query the data source for interesting periods of data within a date range.",
+        content:
           <p>Not implemented yet</p>
         },
-        {title: "Account", icon: <ManageAccountsIcon />, content:
+        {title: "Account", icon: <ManageAccountsIcon />,
+        description: "Account management options.",
+        content:
           <Button variant="contained" onClick={() => window.location.replace("/account")}>Account page</Button>
         }]} />
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
