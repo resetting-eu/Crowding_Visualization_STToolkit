@@ -48,6 +48,12 @@ export default function Login(props) {
     window.location.replace("/forgot_password");
   }
 
+  function onKeyDown(e) {
+    if(e.key === "Enter") {
+      login();
+    }
+  }
+
   return (
     <>
       <Head>
@@ -58,8 +64,8 @@ export default function Login(props) {
       </Head>
       <main>
         <Stack spacing={2}>
-          <TextField label="Email" value={email} onChange={e => setEmail(e.target.value)} />
-          <TextField type="password" label="Password" value={password} onChange={e => setPassword(e.target.value)} />
+          <TextField label="Email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={onKeyDown} />
+          <TextField type="password" label="Password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={onKeyDown} />
           <Button disabled={disabled} variant="contained" onClick={login}>Sign in</Button>
           <Button variant="outlined" onClick={forgotPassword}>Forgot password</Button>
         </Stack>
