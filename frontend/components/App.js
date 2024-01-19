@@ -30,6 +30,7 @@ import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import Typography from '@mui/material/Typography';
 import Switch from '@mui/material/Switch';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
@@ -866,7 +867,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
               </span>
             </Stack>
             <div style={{position: "relative", width: "100%", textAlign: "center"}}>
-              {loadingHistory ? <Button variant="contained">Cancel</Button> : <Button variant="contained" onClick={load}>Load</Button>}
+              {loadingHistory ? <CircularProgress /> : <Button variant="contained" onClick={load}>Load</Button>}
             </div>
           </Stack>},
         {title: "Selection", icon: <SelectAllIcon/>,
