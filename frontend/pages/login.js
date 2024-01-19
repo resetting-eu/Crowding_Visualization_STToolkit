@@ -34,6 +34,9 @@ export default function Login(props) {
         } else if(r.status === 401) {
           setAlert("Invalid email or password");
           setDisabled(false);
+        } else if(r.status === 429) {
+          setAlert("Too many invalid login attempts");
+          // let the form stay disabled since user can't login anyway
         } else {
           setAlert("Unexpected error");
           setDisabled(false);
