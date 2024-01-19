@@ -20,6 +20,8 @@ with open(config_file, encoding="utf-8") as f:
 cfg_auth = cfg["auth"]
 del cfg["auth"]
 
+limiter_expr = cfg_auth["limiter"] if "limiter" in cfg_auth else "5 per day"
+
 app = Flask(__name__)
 
 LOCAL_ENV = environ.get("ENV") == "local"
@@ -86,7 +88,7 @@ def unauthorized_handler():
     return response_unauthorized()
 
 @app.route('/auth/login', methods=['POST'])
-@limiter.limit("5 per day", deduct_when=lambda res: res.status_code != 200)
+@limiter.limit(limiter_expr, deduct_when=lambda res: res.status_code != 200)
 def login():
     data = request.get_json()
     try:
@@ -238,7 +240,7 @@ def change_role():
     return response_ok()
 
 @app.route('/auth/activate', methods=['POST'])
-@limiter.limit("5 per day", deduct_when=lambda res: res.status_code != 200)
+@limiter.limit(limiter_expr, deduct_when=lambda res: res.status_code != 200)
 def activate_user():
     data = request.get_json()
     email = data.get('email')
@@ -261,7 +263,7 @@ def activate_user():
             db.session.rollback()
 
 @app.route('/auth/forgot_password', methods=['POST'])
-@limiter.limit("5 per day")
+@limiter.limit(limiter_expr)
 def forgot_password():
     data = request.get_json()
     email = data.get('email')

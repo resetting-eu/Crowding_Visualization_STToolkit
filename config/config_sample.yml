@@ -51,3 +51,4 @@ auth:
   secret_key: <SECRET_KEY> # generate with: python -c 'import secrets; print(secrets.token_hex())'
   email_sender: noreply@myorg.com
   email_password: <EMAIL_PASSWORD> # see https://mailtrap.io/blog/python-send-email-gmail/
+  limiter: 5 per day # see the following for syntax: https://flask-limiter.readthedocs.io/en/stable/configuration.html#ratelimit-string
