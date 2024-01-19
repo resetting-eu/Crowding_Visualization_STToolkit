@@ -89,8 +89,11 @@ def unauthorized_handler():
 @limiter.limit("5 per day", deduct_when=lambda res: res.status_code != 200)
 def login():
     data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+    try:
+        email = data['email'].strip()
+        password = data['password']
+    except KeyError:
+        return jsonify({'message': 'Missing email or password'}), 400
 
     user = db.session.get(User, email)
     if not user or not check_hash(password, user.pwd_hash):
