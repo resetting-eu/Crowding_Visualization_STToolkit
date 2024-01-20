@@ -676,14 +676,18 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     setMeasurement(m);
     if(m == hueMeasurement)
       setHueMeasurement(hueMeasurements[0]); // None
-    setValues(valuesToVisualize(rawData, selectedTimestamp, m));
-    changeCumValues(m, hueMeasurement);
+    if(rawData.values) {
+      setValues(valuesToVisualize(rawData, selectedTimestamp, m));
+      changeCumValues(m, hueMeasurement);
+    }
   }
 
   function changeHueMeasurement(e) {
     const m = e.target.value;
     setHueMeasurement(m);
-    changeCumValues(measurement, m);
+    if(rawData.values) {
+      changeCumValues(measurement, m);
+    }
   }
 
   const [prismSize, setPrismSize] = useState(zoomToHeight(initialViewState.zoom));
