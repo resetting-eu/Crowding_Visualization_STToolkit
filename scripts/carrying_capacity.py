@@ -7,7 +7,6 @@ from shapely.geometry import shape
 #import area
 import pprint
 import pymongo as db
-import utm
 import math
 from turfpy.transformation import intersect, circle
 from turfpy.measurement import area
