@@ -24,7 +24,9 @@ with open(LOCATIONS_FILE, encoding="utf-8") as f:
         locations = locations["features"]
 
 with open(PARISHES_FILE, encoding="utf-8") as f:
-    parishes = json.load(f)["features"]
+    parishes = json.load(f)
+    if isinstance(parishes, dict):
+        locations = locations["features"]
 
 res = {}
 
