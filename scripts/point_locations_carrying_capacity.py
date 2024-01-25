@@ -9,15 +9,14 @@ from pymongo import MongoClient
 
 ##
 
-if len(sys.argv) < 6:
-    print(f"Usage: python {sys.argv[0]} locations_file pbf_file mongodb_url mongodb_database route_time_limit", file=sys.stderr)
+if len(sys.argv) < 5:
+    print(f"Usage: python {sys.argv[0]} locations_file mongodb_url mongodb_database route_time_limit", file=sys.stderr)
     sys.exit(1)
 
 LOCATIONS_FILE = sys.argv[1]
-PBF_FILE = sys.argv[2]
-MONGODB_URL = sys.argv[3]
-MONGODB_DATABASE = sys.argv[4]
-TIME_LIMIT = int(sys.argv[5])
+MONGODB_URL = sys.argv[2]
+MONGODB_DATABASE = sys.argv[3]
+TIME_LIMIT = int(sys.argv[4])
 
 SPEED = 1.3 # m/s
 
