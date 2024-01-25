@@ -1,0 +1,2 @@
+influxdb-client == 1.35.0
+PyYAML == 6.0
