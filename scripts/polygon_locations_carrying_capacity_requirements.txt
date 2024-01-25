@@ -1,0 +1,6 @@
+pymongo == 4.3.3
+utm == 0.7.0
+geopandas == 0.14.1
+shapely == 2.0.2
+turfpy == 0.0.7
+geojson == 3.1.0
