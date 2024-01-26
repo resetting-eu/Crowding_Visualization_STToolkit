@@ -45,11 +45,11 @@ services:
       - mariadb-data:/var/lib/mysql
 
   # influxdb:
-  #   image: influxdb:1.8.10
+  #   image: influxdb:2.7.5
   #   ports:
   #     - "8086:8086"
   #   volumes:
-  #     - influxdb-data:/var/lib/influxdb
+  #     - influxdb-data:/var/lib/influxdb2
 
   # mongodb:
   #   image: mongo:7.0.1
