@@ -71,6 +71,7 @@ with open(OUTPUT_GEOJSON_FILE, encoding="utf-8") as f:
 with MongoClient(MONGODB_URL) as client:
     database = client[MONGODB_DATABASE]
     collection = database["osm"]
+    collection.delete_many({})
     result = collection.insert_many(features)
 
 #print the command to start GraphHopper
