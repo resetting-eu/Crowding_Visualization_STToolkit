@@ -36,6 +36,8 @@ for feature in points_geojson:
     res = session.get(f"http://localhost:8989/isochrone?point={p[1]},{p[0]}&profile=foot&time_limit={TIME_LIMIT}")
     new_feature = res.json()["polygons"][0]
     new_feature["properties"] = feature["properties"]
+    new_feature["properties"]["longitude"] = p[0]
+    new_feature["properties"]["latitude"] = p[1]
     areas_geojson.append(new_feature)
 
 # put isochrones in mongo
@@ -56,17 +58,13 @@ subprocess.run(f"python carrying_capacity.py {MONGODB_URL} {MONGODB_DATABASE}")
 with open("walkable_areas.json") as f:
     walkable_areas = json.load(f)
 
-for point_feature in points_geojson:
-    id = point_feature["properties"]["id"]
+for isochrone in areas_geojson:
+    id = isochrone["properties"]["id"]
     walkable_area = next(x for x in walkable_areas if x["properties"]["id"] == id)
-    point_feature["properties"]["usable_area"] = area(walkable_area)
+    isochrone["properties"]["usable_area"] = area(walkable_area)
 
-OUTPUT_FILE = "point_locations_with_usable_areas.json"
+OUTPUT_FILE = "isochrones_with_usable_area.json"
 with open(OUTPUT_FILE, "w") as f:
-    json.dump(points_geojson, f)
-
-# output isochrones
-with open("isochrones.json", "w") as f:
     json.dump(areas_geojson, f)
 
-print(f"Results: {OUTPUT_FILE}, walkable_areas.json, isochrones.json")
+print(f"Results: {OUTPUT_FILE}, walkable_areas.json")

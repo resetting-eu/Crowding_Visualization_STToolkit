@@ -377,7 +377,7 @@ def configure_metadata_handler():
 
 # instantiate endpoints as defined in configuration file
 for name in cfg:
-    assert name in ("history", "live", "metadata", "walkableAreas", "isochrones") # TODO verificar que metadata existe e pelo menos um de (history,locations) existe e que não há repetições
+    assert name in ("history", "live", "metadata", "walkableAreas") # TODO verificar que metadata existe e pelo menos um de (history,locations) existe e que não há repetições
     if name == "metadata":
         configure_metadata_handler()
     else:

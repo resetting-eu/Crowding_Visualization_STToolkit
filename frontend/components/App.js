@@ -568,23 +568,22 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   const [selectedSquares, setSelectedSquares] = useState([]);
+  const [hoveredSquare, setHoveredSquare] = useState(null);
   
-  function toggleSquare({lng, lat}) {
+  function toggleSquares({lng, lat}) {
     const p = point([lng, lat], {});
-    let square = null;
+    const squares = new Set(selectedSquares);
     for(let i = 0; i < grid.length; ++i) {
       if(booleanContains(grid[i], p)) {
-        square = grid[i].properties.id;
-        break;
+        const square = grid[i].properties.id;
+        if(squares.has(square)) {
+          squares.delete(square);
+        } else {
+          squares.add(square);
+        }
       }
     }
-    if(square !== null) {
-      if(selectedSquares.includes(square)) {
-        setSelectedSquares(selectedSquares.filter(s => s !== square));
-      } else {
-        setSelectedSquares([...selectedSquares, square]);
-      }
-    }
+    setSelectedSquares(Array.from(squares));
   }
 
   function changeCumValues(measurement, hueMeasurement) {
@@ -738,19 +737,62 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   function getPosition(square) {
     if(!square || values[square.properties.id] === undefined)
       return null;
-    const show = showData === "all" || (showData === "selected" && selectedSquares.includes(square.properties.id));
-    return show ? center(square).geometry.coordinates : null;
+    if(showData === "all" || (showData === "selected" && selectedSquares.includes(square.properties.id))) {
+      if(square.geometry.type === "Point") {
+        return square.geometry.coordinates;
+      } else if(square.properties.longitude !== undefined && square.properties.latitude !== undefined) {
+        return [square.properties.longitude, square.properties.latitude];
+      } else {
+        return center(square).geometry.coordinates;
+      }
+    } else {
+      return null;
+    }
+  }
+
+  function onHover(info) {
+    if(info.index === -1) {
+      setHoveredSquare(null);
+    } else {
+      setHoveredSquare(grid.find(s => s.properties.id === info.object.properties.id).properties.id);
+    }
+  }
+
+  function gridFillColor(s) {
+    if(selectedSquares.includes(s.properties.id)) {
+      return [138, 138, 0, 100];
+    } else {
+      return [0, 0, 0, 0];
+    }
+  }
+
+  function gridLineWidth(s) {
+    if(hoveredSquare === s.properties.id) {
+      return 10;
+    } else {
+      return 5;
+    }
+  }
+  
+  function gridLineColor(s) {
+    if(hoveredSquare === s.properties.id) {
+      return [230, 138, 0, 255];
+    } else {
+      return [120, 120, 120, 255];
+    }
   }
 
   const geoJsonLayer = new GeoJsonLayer({
     id: "quadricula",
     data: grid,
     filled: true,
-    getLineWidth: 5,
-    getLineColor: [120, 120, 120, 255],
-    getFillColor: s => selectedSquares.includes(s.properties.id) ? [138, 138, 0, 100] : [0, 0, 0, 0],
+    getLineWidth: gridLineWidth,
+    getLineColor: gridLineColor,
+    getFillColor: gridFillColor,
     updateTriggers: {
-      getFillColor: [selectedSquares]
+      getFillColor: [selectedSquares],
+      getLineColor: [hoveredSquare],
+      getLineWidth: [hoveredSquare]
     }
   });
   const prismLayer = new CustomColumnLayer({
@@ -763,6 +805,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     getTopFaceColor: [255, 0, 0],
     getPaintTopFace: s => values[s.properties.id] > measurementMax() ? 1.0 : 0.0,
     radius: columnRadius,
+    onHover: onHover,
     material: {
       "ambient": 0.35,
       "diffuse": 0.6,
@@ -936,7 +979,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
         <Map mapLib={maplibregl} mapStyle={style}
           ref={mapRef}
           initialViewState={initialViewState}
-          onClick={(e) => !drawing && toggleSquare(e.lngLat)}
+          onClick={(e) => !drawing && toggleSquares(e.lngLat)}
           onDblClick={(e) => e.preventDefault()}>
           <DeckGLOverlay layers={layers} effects={[lightingEffect]}
             getTooltip={(o) => o.picked && tooltip(o.object.properties.id)} />
