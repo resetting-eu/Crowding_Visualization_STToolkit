@@ -31,6 +31,7 @@ metadata:
     pitch: 30
   hasDensity: true # requires usable_area or unusable_area in the locations' properties
   hasLive: false # if set to true, it's necessary to configure the "live" endpoint, as done with "history" above
+  hasIsochrones: false # if set to true, it's necessary to configure the "isochrones" endpoint
   columnRadius: 12
   metrics:
     - name: "C1"
@@ -43,6 +44,11 @@ metadata:
       shortDescription: "roaming"
       unit: "devices"
       cap: 100
+
+walkableAreas:
+  connector: static
+  parameters:
+    path: /backend/config/<FILENAME>
 
 auth:
   database_uri: mysql://user:password@mariadb:3306/auth
