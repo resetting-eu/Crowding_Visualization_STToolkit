@@ -28,6 +28,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import ManageHistoryIcon from '@mui/icons-material/ManageHistory';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import Typography from '@mui/material/Typography';
 import Switch from '@mui/material/Switch';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -733,6 +734,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   const [showData, setShowData] = useState("all"); // "all" | "selected" | "none"
+  const [showAreas, setShowAreas] = useState("all");
 
   function getPosition(square) {
     if(!square || values[square.properties.id] === undefined)
@@ -758,9 +760,13 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     }
   }
 
+  function showArea(s) {
+    return showAreas === "all" || (showAreas === "selected" && selectedSquares.includes(s.properties.id));
+  }
+
   function gridFillColor(s) {
     if(selectedSquares.includes(s.properties.id)) {
-      return [138, 138, 0, 100];
+      return [138, 138, 0, 100 * (showArea(s) ? 1 : 0)];
     } else {
       return [0, 0, 0, 0];
     }
@@ -769,8 +775,10 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   function gridLineWidth(s) {
     if(hoveredSquare === s.properties.id) {
       return 10;
-    } else {
+    } else if(showArea(s)) {
       return 5;
+    } else {
+      return 0;
     }
   }
   
@@ -790,9 +798,9 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     getLineColor: gridLineColor,
     getFillColor: gridFillColor,
     updateTriggers: {
-      getFillColor: [selectedSquares],
-      getLineColor: [hoveredSquare],
-      getLineWidth: [hoveredSquare]
+      getFillColor: [selectedSquares, showAreas],
+      getLineColor: [hoveredSquare, showAreas],
+      getLineWidth: [hoveredSquare, showAreas, selectedSquares]
     }
   });
   const prismLayer = new CustomColumnLayer({
@@ -917,6 +925,21 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
               {loadingHistory ? <CircularProgress /> : <Button variant="contained" onClick={load}>Load</Button>}
             </div>
           </Stack>},
+        {title: "Visibility", icon: <VisibilityIcon/>,
+        description: "Choose which cylinders and areas are shown on the map.",
+        content:
+          <Stack direction="row" spacing={2}>
+            <TextField select value={showData} label="Cylinders" onChange={change(setShowData)}>
+              <MenuItem value="all" key="all">Show all</MenuItem>
+              <MenuItem value="selected" key="selected">Show selected</MenuItem>
+              <MenuItem value="none" key="none">Don't show</MenuItem>
+            </TextField>
+            <TextField select value={showAreas} label="Areas" onChange={change(setShowAreas)}>
+              <MenuItem value="all" key="all">Show all</MenuItem>
+              <MenuItem value="selected" key="selected">Show selected</MenuItem>
+              <MenuItem value="none" key="none">Don't show</MenuItem>
+            </TextField>
+          </Stack>},
         {title: "Selection", icon: <SelectAllIcon/>,
         description: "Select the area of interest that will be considered for the line chart and for the slider color gradient.",
         content:
@@ -953,11 +976,11 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
             <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={animating} />
             <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} disabled={animating} />
           </Stack>},
-        {title: "Points", icon: <TroubleshootIcon/>,
-        description: "Query the data source for interesting periods of data within a date range.",
-        content:
-          <p>Not implemented yet</p>
-        },
+        // {title: "Points", icon: <TroubleshootIcon/>,
+        // description: "Query the data source for interesting periods of data within a date range.",
+        // content:
+        //   <p>Not implemented yet</p>
+        // },
         {title: "Account", icon: <ManageAccountsIcon />,
         description: "Account management options.",
         content:
@@ -966,11 +989,6 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Stack direction="row" spacing={2}>
           <CustomSlider value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"}  colors={sliderColors} live={currentStatusIs(statuses.viewingLive)}/>
-          <TextField select value={showData} label="Show" onChange={change(setShowData)} size="small" sx={{width: 140}}>
-            <MenuItem value="all" key="all">All</MenuItem>
-            <MenuItem value="selected" key="selected">Selected</MenuItem>
-            <MenuItem value="none" key="none">None</MenuItem>
-          </TextField>
           {hasLive && 
             <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.loadingLive)}>Live</Button>}
         </Stack>
