@@ -725,7 +725,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   function calcPrismColor(location) {
     if(!rawData.values[measurement.name][location])
       return null;
-    const selected = selectedSquares.includes(location);
+    const selected = selectedSquares.includes(location) || selectedSquares.length === 0;
     if(hueMeasurement.name == "Density")
       return getRgbForPrismMappedToDensity(location, selected);
     else if(hueMeasurement.name == "None")
