@@ -861,19 +861,25 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
 
     if(!currentStatusIs(statuses.animating)) { // animate
       selectedTimestampBeforeAnimation.current = selectedTimestamp;
-      changeSelectedTimestamp(0);
-      selectedTimestampAnimation.current = 0;
+      const firstTimestamp = playDirection === "forwards" ? 0 : rawData.timestamps.length - 1
+      changeSelectedTimestamp(firstTimestamp);
+      selectedTimestampAnimation.current = firstTimestamp;
       changeStatus(statuses.animating);
       animationInterval.current = setInterval(() => {
-        selectedTimestampAnimation.current++;
-        if(selectedTimestampAnimation.current >= rawData.timestamps.length) {
+        if(playDirection === "forwards") {
+          selectedTimestampAnimation.current++;
+        } else {
+          selectedTimestampAnimation.current--;
+        }
+        if((playDirection === "forwards" && selectedTimestampAnimation.current >= rawData.timestamps.length)
+          || (playDirection === "backwards" && selectedTimestampAnimation.current <= 0)) {
           clearInterval(animationInterval.current);
           changeSelectedTimestamp(selectedTimestampBeforeAnimation.current);
           changeStatus(previousStatusRef.current);
         } else {
           changeSelectedTimestamp(selectedTimestampAnimation.current);
         }
-      }, 500);  
+      }, playInterval);  
     } else { // stop animation
       clearInterval(animationInterval.current);
       if(previousStatusIs(statuses.viewingLive) && selectedTimestampAnimation.current < rawData.timestamps.length - 1) {
@@ -884,8 +890,11 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     }
   }
 
+  const [playDirection, setPlayDirection] = useState("forwards");
+  const [playInterval, setPlayInterval] = useState(500);
   const animating = currentStatusIs(statuses.animating);
-  const animateIconComponent = animating ? StopIcon : PlayArrowIcon;
+  const playIcon = playDirection === "forwards" ? <PlayArrowIcon/> : <PlayArrowIcon sx={{transform: "scaleX(-1)"}}/>;
+  const animateIcon = animating ? <StopIcon/> : playIcon;
   const animateToggleButtonTooltip = animating ? "Stop animation" : "Play animation";
 
   const mapRef = useRef(null);
@@ -982,7 +991,22 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
         description: "Options for automatic navigation of the temporal dimension.",
         content:
           <Stack direction="row" spacing={2}>
-            <IconButtonWithTooltip tooltip={animateToggleButtonTooltip} onClick={toggleAnimate} iconComponent={animateIconComponent} />
+            <IconButton onClick={toggleAnimate}>
+              <MUITooltip title={animateToggleButtonTooltip}>
+                {animateIcon}
+              </MUITooltip>
+            </IconButton>
+            <TextField select value={playDirection} label="Direction" onChange={change(setPlayDirection)} disabled={animating} size="small">
+              <MenuItem value="forwards" key="forwards">Forwards</MenuItem>
+              <MenuItem value="backwards" key="backwards">Backwards</MenuItem>
+            </TextField>
+            <TextField select value={playInterval} label="Speed" onChange={change(setPlayInterval)} disabled={animating} size="small">
+              <MenuItem value={1250} key="1250">0.25x</MenuItem>
+              <MenuItem value={1000} key="1000">0.5x</MenuItem>
+              <MenuItem value={500} key="500">1x</MenuItem>
+              <MenuItem value={250} key="250">1.5x</MenuItem>
+              <MenuItem value={125} key="125">2x</MenuItem>
+            </TextField>
             <IconButtonWithTooltip tooltip="Go to previous critical point" onClick={fastBackward} iconComponent={SkipPreviousIcon} disabled={animating} />
             <IconButtonWithTooltip tooltip="Go to next critical point" onClick={fastForward} iconComponent={SkipNextIcon} disabled={animating} />
           </Stack>},
