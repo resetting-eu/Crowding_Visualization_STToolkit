@@ -39,9 +39,9 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import MapboxDrawStyles from './MapboxDrawStyles';
 
-import { booleanContains, booleanIntersects, point, center } from '@turf/turf';
+import { booleanContains, point, center } from '@turf/turf';
 
-import { dayjs, dayjsSetLocaleAndTimezone, concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage } from './Utils';
+import { dayjs, dayjsSetLocaleAndTimezone, concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage, getRgbForPercentageSameHue } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
@@ -554,9 +554,15 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     setTimeout(() => {
       if(polygon) {
         let squares = []; // squares that intersect the polygon
-        for(let i = 0; i < grid.length; ++i) {
-          const s = grid[i];
-          if(booleanIntersects(polygon, s)) {
+        for(const s of grid) {
+          let position;
+          if(s.properties.longitude !== undefined && s.properties.latitude !== undefined) {
+            position = [s.properties.longitude, s.properties.latitude];
+          } else {
+            position = center(s).geometry.coordinates;
+          }
+          const p = point(position);
+          if(booleanContains(polygon, p)) {
             squares.push(s.properties.id);
           }
         }
@@ -571,18 +577,12 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const [selectedSquares, setSelectedSquares] = useState([]);
   const [hoveredSquare, setHoveredSquare] = useState(null);
   
-  function toggleSquares({lng, lat}) {
-    const p = point([lng, lat], {});
+  function toggleSquare(location) {
     const squares = new Set(selectedSquares);
-    for(let i = 0; i < grid.length; ++i) {
-      if(booleanContains(grid[i], p)) {
-        const square = grid[i].properties.id;
-        if(squares.has(square)) {
-          squares.delete(square);
-        } else {
-          squares.add(square);
-        }
-      }
+    if(squares.has(location)) {
+      squares.delete(location);
+    } else {
+      squares.add(location);
     }
     setSelectedSquares(Array.from(squares));
   }
@@ -613,7 +613,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   for(const v of arrForColors) {
     // normalized value, between 0.0 and 0.1
     const nv = (v - minCumValue) / (maxCumValue - minCumValue) / 10;
-    const ca = getRgbForPercentage(nv);
+    const ca = getRgbForPercentage(nv, true);
     const color = `rgba(${ca.join(",")})`;
     sliderColors.push(color);
   }
@@ -714,23 +714,24 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     return percentage;
   }
 
-  function getRgbForPrismMappedToDensity(location) {
+  function getRgbForPrismMappedToDensity(location, selected) {
     const magicFactor = 0.4; // TODO make this configurable
     const maxDensity = measurement.cap * magicFactor;
     const density = gridDensity(location); // units per hectare
     const pct = Math.min(0.1 * density / maxDensity, 0.1);
-    return getRgbForPercentage(pct);
+    return getRgbForPercentage(pct, selected);
   }
 
   function calcPrismColor(location) {
     if(!rawData.values[measurement.name][location])
       return null;
+    const selected = selectedSquares.includes(location);
     if(hueMeasurement.name == "Density")
-      return getRgbForPrismMappedToDensity(location);
+      return getRgbForPrismMappedToDensity(location, selected);
     else if(hueMeasurement.name == "None")
-      return [0, 0, 100];
+      return getRgbForPercentageSameHue(selected);
     else
-      return getRgbForPercentage(percentageForMeasurement(location));
+      return getRgbForPercentage(percentageForMeasurement(location), selected);
   }
 
   const [showData, setShowData] = useState("all"); // "all" | "selected" | "none"
@@ -758,6 +759,14 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     } else {
       setHoveredSquare(grid.find(s => s.properties.id === info.object.properties.id).properties.id);
     }
+  }
+
+  function onClick(info) {
+    if(drawing) {
+      return;
+    }
+
+    toggleSquare(info.object.properties.id);
   }
 
   function showArea(s) {
@@ -814,6 +823,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     getPaintTopFace: s => values[s.properties.id] > measurementMax() ? 1.0 : 0.0,
     radius: columnRadius,
     onHover: onHover,
+    onClick: onClick,
     material: {
       "ambient": 0.35,
       "diffuse": 0.6,
@@ -821,7 +831,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       "specularColor": [255, 255, 255]
     },
     updateTriggers: {
-      getFillColor: [values, hueMeasurement],
+      getFillColor: [values, hueMeasurement, selectedSquares],
       getElevation: [values, prismSize],
       getPaintTopFace: [values],
       getPosition: [showData, selectedSquares, values]
@@ -997,7 +1007,6 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
         <Map mapLib={maplibregl} mapStyle={style}
           ref={mapRef}
           initialViewState={initialViewState}
-          onClick={(e) => !drawing && toggleSquares(e.lngLat)}
           onDblClick={(e) => e.preventDefault()}>
           <DeckGLOverlay layers={layers} effects={[lightingEffect]}
             getTooltip={(o) => o.picked && tooltip(o.object.properties.id)} />
