@@ -734,7 +734,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   const [showData, setShowData] = useState("all"); // "all" | "selected" | "none"
-  const [showAreas, setShowAreas] = useState("all");
+  const [showAreas, setShowAreas] = useState("none");
 
   function getPosition(square) {
     if(!square || values[square.properties.id] === undefined)
