@@ -166,15 +166,23 @@ function hslToRgb(h, s, l){
 
 // 0 -> green (120deg hue)
 // 0.1 -> red (0deg hue)
-function getHslForPercentage(pct) {
+function getHslForPercentage(pct, highlight) {
   const h = 120 - Math.min(120 * pct / 0.1, 120);
-  const s = 60;
+  const s = highlight ? 60 : 30;
   const l = 100;
 
   return [h, s, l];
 }
 
-export function getRgbForPercentage(pct) {
-  const [h, s, l] = getHslForPercentage(pct);
+export function getRgbForPercentage(pct, highlight) {
+  const [h, s, l] = getHslForPercentage(pct, highlight);
   return hslToRgb(h / 360, l / 100, s / 100);
+}
+
+export function getRgbForPercentageSameHue(highlight) {
+  const h = 240;
+  const s = highlight ? 60 : 30;
+  const l = 100;
+
+  return hslToRgb(h / 360, l / 100, s / 100);  
 }
