@@ -32,6 +32,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import Typography from '@mui/material/Typography';
 import Switch from '@mui/material/Switch';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
@@ -45,7 +46,7 @@ import { dayjs, dayjsSetLocaleAndTimezone, concatDataIndexes, formatTimestamp, m
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
-import CustomColumnLayer from './CustomColumnLayer';
+import CustomColumnLayer from './custom_column_layer/column-layer';
 import CoordinatesPane from './CoordinatesPane';
 
 import dynamic from 'next/dynamic';
@@ -215,6 +216,13 @@ const statuses = {
   noData: {caption: "No data loaded"}
 }
 
+const quartiles = {
+  Q1: 0,
+  Q2: 1,
+  Q3: 2,
+  MAX: 3
+}
+
 let dayjsLocaleSet = false;
 
 function gotoLoginIf401(response) {
@@ -236,6 +244,24 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const [cumDensityValues, setCumDensityValues] = useState(null);
   const [cumHueValues, setCumHueValues] = useState(null);
   const [cumHueDensityValues, setCumHueDensityValues] = useState(null);
+
+
+  function getDataValue(o, quartile) {
+    if(typeof o === "object") {
+      if(!quartile) {
+        return o[quartiles.Q2];
+      } else {
+        return o[quartile];
+      }
+    } else {
+      return o;
+    }
+  }
+
+  function getValue(location, quartile) {
+    const value = values[location];
+    return getDataValue(value, quartile);
+  }
 
   const [parishValue, setParishValue] = useState("");
 
@@ -484,7 +510,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     if(!rawData.values[measurement.name][location])
       return null;
     const m = rawData.values[measurement.name][location];
-    const value = m[selectedTimestamp];
+    const value = getDataValue(m[selectedTimestamp]);
     const cell = grid.find(c => c.properties.id === location);
     return formatDensity(calcDensity(value, cell));
   }
@@ -526,7 +552,8 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       const squareFeature = grid.find(s => s.properties.id === square);
       totalUsableArea += usableArea(squareFeature);
       for(let i = 0; i < squareMeasurements.length; ++i) {
-        const squareMeasurement = squareMeasurements[i] ? squareMeasurements[i] : 0;
+        const v = getDataValue(squareMeasurements[i]);
+        const squareMeasurement = v ? v : 0;
         selectedSquaresCumValues[i] += squareMeasurement;
       }
     }
@@ -638,7 +665,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
 
   function tooltip(location) {
     let html = "";
-    const mainValue = Math.round(values[location]);
+    const mainValue = Math.round(getValue(location));
     const mainDescription = "(" + heightMeasurementDescription + ")";
     const hueDescription = "(" + hueMeasurementDescription + ")";
     if(hueMeasurement.name === "None") {
@@ -680,13 +707,31 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       setValues(valuesToVisualize(rawData, selectedTimestamp, m));
       changeCumValues(m, hueMeasurement);
     }
+    if(visualizeUncertainty && !m.hasQuartiles) {
+      setVisualizeUncertainty(false);
+    }
   }
 
-  function changeHueMeasurement(e) {
-    const m = e.target.value;
+  function changeHueMeasurement(m) {
+    if(visualizeUncertainty && m === hueMeasurements[0]) {
+      setVisualizeUncertainty(false);
+    }
     setHueMeasurement(m);
     if(rawData.values) {
       changeCumValues(measurement, m);
+    }
+  }
+
+  const [visualizeUncertainty, setVisualizeUncertainty] = useState(false);
+
+  function changeUncertaintySwitch(e) {
+    if(e.target.checked) {
+      if(hueMeasurement !== hueMeasurements[0]) {
+        changeHueMeasurement(hueMeasurements[0]);
+      }
+      setVisualizeUncertainty(true);
+    } else {
+      setVisualizeUncertainty(false);
     }
   }
 
@@ -696,8 +741,8 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     return (currentStatusIs(statuses.viewingHistory) && measurement.capHistory) ? measurement.capHistory : measurement.cap;
   }
 
-  function calcElevation(id) {
-    const value = values[id];
+  function calcElevation(id, quartile) {
+    const value = getValue(id, quartile);
     const measurement_max = measurementMax();
     const elevation_max = prismSize;
     return value * elevation_max / measurement_max;
@@ -705,7 +750,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
 
   function valueForHueMeasurement(location) {
     if(rawData.values[hueMeasurement.name][location])
-      return rawData.values[hueMeasurement.name][location][selectedTimestamp];
+      return getDataValue(rawData.values[hueMeasurement.name][location][selectedTimestamp]);
   }
 
   function percentageForMeasurement(location) {
@@ -738,7 +783,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const [showAreas, setShowAreas] = useState("selected");
 
   function getPosition(square) {
-    if(!square || values[square.properties.id] === undefined)
+    if(!square || getValue(square.properties.id) === undefined)
       return null;
     if(showData === "all" || (showData === "selected" && selectedSquares.includes(square.properties.id))) {
       if(square.geometry.type === "Point") {
@@ -816,14 +861,20 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     id: "columns",
     data: grid,
     pickable: true,
-    getElevation: s => Math.min(calcElevation(s.properties.id), prismSize),
+    getElevation1: s => Math.min(calcElevation(s.properties.id, quartiles.Q1), prismSize),
+    getElevation2: s => Math.min(calcElevation(s.properties.id, quartiles.Q2), prismSize),
+    getElevation3: s => Math.min(calcElevation(s.properties.id, quartiles.Q3), prismSize),
+    getElevation4: s => Math.min(calcElevation(s.properties.id, quartiles.MAX), prismSize),
     getPosition: getPosition,
-    getFillColor: s => calcPrismColor(s.properties.id),
+    getFillColor1: s => calcPrismColor(s.properties.id),
+    getFillColor2: s => {const c = calcPrismColor(s.properties.id); if(!c) return null; const [r,g,b] = c; return [r,g,b,100]},
+    getQuartileColor: [255, 100, 0, 255],
     getTopFaceColor: [255, 0, 0],
-    getPaintTopFace: s => values[s.properties.id] > measurementMax() ? 1.0 : 0.0,
+    getPaintTopFace: s => getValue(s.properties.id) > measurementMax() ? 1.0 : 0.0,
     radius: columnRadius,
     onHover: onHover,
     onClick: onClick,
+    visualizeUncertainty: visualizeUncertainty,
     material: {
       "ambient": 0.35,
       "diffuse": 0.6,
@@ -831,10 +882,15 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       "specularColor": [255, 255, 255]
     },
     updateTriggers: {
-      getFillColor: [values, hueMeasurement, selectedSquares],
-      getElevation: [values, prismSize],
+      getFillColor1: [values, hueMeasurement, selectedSquares],
+      getFillColor2: [values, hueMeasurement, selectedSquares],
+      getElevation1: [values, prismSize],
+      getElevation2: [values, prismSize],
+      getElevation3: [values, prismSize],
+      getElevation4: [values, prismSize],
       getPaintTopFace: [values],
-      getPosition: [showData, selectedSquares, values]
+      getPosition: [showData, selectedSquares, values],
+      visualizeUncertainty: [visualizeUncertainty]
     }
   });
   const layers = [geoJsonLayer, prismLayer];
@@ -981,11 +1037,12 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
                 <MenuItem value={m} key={m.name}>{m.name + " - " + m.description}</MenuItem>
               ))}
             </TextField>
-            <TextField select label="Hue" sx={{width: 120}} value={hueMeasurement} onChange={changeHueMeasurement} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
+            <TextField select label="Hue" sx={{width: 120}} value={hueMeasurement} onChange={e => changeHueMeasurement(e.target.value)} SelectProps={{renderValue: (m) => m.name}} disabled={loadingHistory} >
                 {hueMeasurements.map(m => (
                   <MenuItem value={m} key={m.name}>{m.description ? m.name + " - " + m.description : m.name}</MenuItem>
                 ))}
             </TextField>
+            <FormControlLabel control={<Switch disabled={!measurement.hasQuartiles} checked={visualizeUncertainty} onChange={changeUncertaintySwitch} />} label="Visualize uncertainty" />
           </Stack>},
         {title: "Seek", icon: <FastForwardIcon/>,
         description: "Options for automatic navigation of the temporal dimension.",
