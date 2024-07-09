@@ -693,7 +693,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const [prismSize, setPrismSize] = useState(zoomToHeight(initialViewState.zoom));
 
   function measurementMax() {
-    return currentStatusIs(statuses.viewingHistory) && measurement.capHistory ? measurement.capHistory : measurement.cap;
+    return (currentStatusIs(statuses.viewingHistory) && measurement.capHistory) ? measurement.capHistory : measurement.cap;
   }
 
   function calcElevation(id) {
@@ -715,8 +715,8 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   function getRgbForPrismMappedToDensity(location, selected) {
-    const magicFactor = 0.4; // TODO make this configurable
-    const maxDensity = measurement.cap * magicFactor;
+    const magicFactor = 0.1; // TODO make this configurable
+    const maxDensity = measurementMax() * magicFactor;
     const density = gridDensity(location); // units per hectare
     const pct = Math.min(0.1 * density / maxDensity, 0.1);
     return getRgbForPercentage(pct, selected);
