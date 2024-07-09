@@ -283,7 +283,7 @@ export default class ColumnLayer extends Layer
     if (filled) {
       model.setProps({isIndexed: false});
       if(visualizeUncertainty) {
-        for(let i = 0; i < 4; ++i) {
+        for(let i = 0; i < 5; ++i) {
           model
             .setVertexCount(fillVertexCount)
             .setDrawMode(GL.TRIANGLE_STRIP)
