@@ -26,6 +26,7 @@ in vec3 positions;
 in vec3 normals;
 
 in vec3 instancePositions;
+in float instanceElevations0;
 in float instanceElevations1;
 in float instanceElevations2;
 in float instanceElevations3;
@@ -42,6 +43,7 @@ in vec3 instancePickingColors;
 // Custom uniforms
 uniform float opacity;
 uniform float radius;
+uniform float radiusSmall;
 uniform float angle;
 uniform vec2 offset;
 uniform bool extruded;
@@ -81,32 +83,36 @@ void main(void) {
   if (extruded) {
     if(visualizeUncertainty) {
       if(nColumn == 0) {
-        elevation = instanceElevations1 * (positions.z + 1.0) / 2.0 * elevationScale;
-        color = normals.z == 1.0 ? quartileColors : instanceFillColors1;
+        if(positions.z < 0.0) {
+          elevation = instanceElevations0 * elevationScale;
+        } else {
+          elevation = instanceElevations4 * elevationScale + 1.0;
+        }
+        color = instanceFillColors1;
       } else if(nColumn == 1) {
         if(positions.z < 0.0) {
           elevation = instanceElevations1 * elevationScale;      
         } else {
-          elevation = instanceElevations1 * elevationScale + 1.0;
+          elevation = instanceElevations2 * elevationScale;
         }
-        color = quartileColors;
+        color = instanceFillColors1;
       } else if(nColumn == 2) {
         if(positions.z < 0.0) {
-          elevation = instanceElevations1 * elevationScale + 1.0;
+          elevation = instanceElevations2 * elevationScale;
         } else {
           elevation = instanceElevations2 * elevationScale + 1.0;
         }
-        color = instanceFillColors1;
+        color = quartileColors;
       } else if(nColumn == 3) {
         if(positions.z < 0.0) {
           elevation = instanceElevations2 * elevationScale + 1.0;  
         } else {
           elevation = instanceElevations3 * elevationScale + 1.0;
         }
-        color = normals.z == 1.0 ? quartileColors : instanceFillColors2;
+        color = instanceFillColors1;;
       } else { // nColumn == 4
         if(positions.z < 0.0) {
-          elevation = instanceElevations3 * elevationScale + 1.0;
+          elevation = 0.0;
         } else {
           elevation = instanceElevations4 * elevationScale + 1.0;
         }
@@ -130,7 +136,7 @@ void main(void) {
 
   // if alpha == 0.0 or z < 0.0, do not render element
   float shouldRender = float(color.a > 0.0 && instanceElevations1 >= 0.0 && instanceElevations2 >= 0.0);
-  float dotRadius = radius * coverage * shouldRender;
+  float dotRadius = (nColumn == 0 ? radiusSmall : radius) * coverage * shouldRender;
 
   geometry.pickingColor = instancePickingColors;
 

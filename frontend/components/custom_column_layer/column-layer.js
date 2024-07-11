@@ -39,6 +39,7 @@ const defaultProps = {
   diskResolution: {type: 'number', min: 4, value: 20},
   vertices: null,
   radius: {type: 'number', min: 0, value: 1000},
+  radiusSmall: {type: 'number', min: 0, value: 1000},
   angle: {type: 'number', value: 0},
   offset: {type: 'array', value: [0, 0]},
   coverage: {type: 'number', min: 0, max: 1, value: 1},
@@ -105,25 +106,30 @@ export default class ColumnLayer extends Layer
         transition: true,
         accessor: 'getPosition'
       },
+      instanceElevations0: {
+        size: 1,
+        transition: true,
+        accessor: 'getQ0'
+      },
       instanceElevations1: {
         size: 1,
         transition: true,
-        accessor: 'getElevation1'
+        accessor: 'getQ1'
       },
       instanceElevations2: {
         size: 1,
         transition: true,
-        accessor: 'getElevation2'
+        accessor: 'getQ2'
       },
       instanceElevations3: {
         size: 1,
         transition: true,
-        accessor: 'getElevation3'
+        accessor: 'getQ3'
       },
       instanceElevations4: {
         size: 1,
         transition: true,
-        accessor: 'getElevation4'
+        accessor: 'getQ4'
       },
       instanceFillColors1: {
         size: this.props.colorFormat.length,
@@ -249,6 +255,7 @@ export default class ColumnLayer extends Layer
       offset,
       coverage,
       radius,
+      radiusSmall,
       angle,
       visualizeUncertainty
     } = this.props;
@@ -256,6 +263,7 @@ export default class ColumnLayer extends Layer
 
     model.setUniforms(uniforms).setUniforms({
       radius,
+      radiusSmall,
       angle: (angle / 180) * Math.PI,
       offset,
       extruded,

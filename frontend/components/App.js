@@ -217,10 +217,11 @@ const statuses = {
 }
 
 const quartiles = {
-  Q1: 0,
-  Q2: 1,
-  Q3: 2,
-  MAX: 3
+  Q0: 0,
+  Q1: 1,
+  Q2: 2,
+  Q3: 3,
+  MAX: 4
 }
 
 let dayjsLocaleSet = false;
@@ -861,10 +862,11 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     id: "columns",
     data: grid,
     pickable: true,
-    getElevation1: s => Math.min(calcElevation(s.properties.id, quartiles.Q1), prismSize),
-    getElevation2: s => Math.min(calcElevation(s.properties.id, quartiles.Q2), prismSize),
-    getElevation3: s => Math.min(calcElevation(s.properties.id, quartiles.Q3), prismSize),
-    getElevation4: s => Math.min(calcElevation(s.properties.id, quartiles.MAX), prismSize),
+    getQ0: s => Math.min(calcElevation(s.properties.id, quartiles.Q0), prismSize),
+    getQ1: s => Math.min(calcElevation(s.properties.id, quartiles.Q1), prismSize),
+    getQ2: s => Math.min(calcElevation(s.properties.id, quartiles.Q2), prismSize),
+    getQ3: s => Math.min(calcElevation(s.properties.id, quartiles.Q3), prismSize),
+    getQ4: s => Math.min(calcElevation(s.properties.id, quartiles.MAX), prismSize),
     getPosition: getPosition,
     getFillColor1: s => calcPrismColor(s.properties.id),
     getFillColor2: s => {const c = calcPrismColor(s.properties.id); if(!c) return null; const [r,g,b] = c; return [r,g,b,100]},
@@ -872,6 +874,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     getTopFaceColor: [255, 0, 0],
     getPaintTopFace: s => getValue(s.properties.id) > measurementMax() ? 1.0 : 0.0,
     radius: columnRadius,
+    radiusSmall: columnRadius / 2.0,
     onHover: onHover,
     onClick: onClick,
     visualizeUncertainty: visualizeUncertainty,
@@ -884,10 +887,11 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     updateTriggers: {
       getFillColor1: [values, hueMeasurement, selectedSquares],
       getFillColor2: [values, hueMeasurement, selectedSquares],
-      getElevation1: [values, prismSize],
-      getElevation2: [values, prismSize],
-      getElevation3: [values, prismSize],
-      getElevation4: [values, prismSize],
+      getQ0: [values, prismSize],
+      getQ1: [values, prismSize],
+      getQ2: [values, prismSize],
+      getQ3: [values, prismSize],
+      getQ4: [values, prismSize],
       getPaintTopFace: [values],
       getPosition: [showData, selectedSquares, values],
       visualizeUncertainty: [visualizeUncertainty]
