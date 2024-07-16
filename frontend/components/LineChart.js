@@ -1,4 +1,4 @@
-import { Chart as ChartJS, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Title } from "chart.js";
+import { Chart as ChartJS, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Title, Filler } from "chart.js";
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { Line } from "react-chartjs-2";
 import { useState } from "react";
@@ -11,7 +11,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import Draggable from 'react-draggable';
 import { formatTimestamp, formatValue } from "./Utils";
 
-ChartJS.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Title, zoomPlugin);
+ChartJS.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Title, zoomPlugin, Filler);
 
 function title(selectedSquaresNum) {
   if(selectedSquaresNum > 1) {
@@ -30,7 +30,7 @@ function pointRadius(numberOfPoints) {
   return points * -0.02 + 3;
 }
 
-function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueValues, cumHueDensityValues, chartPointColor, selectedSquaresNum, heightMeasurementDescription, hueMeasurementDescription}) {
+function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueValues, cumHueDensityValues, chartPointColor, selectedSquaresNum, heightMeasurementDescription, hueMeasurementDescription, cumQ0Values, cumQ4Values}) {
   const [visible, setVisible] = useState(true);
   const [visualization, setVisualization] = useState("absolute");
 
@@ -52,6 +52,10 @@ function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueV
   if(cumHueValues) {
     options.scales.yright = {ticks: {callback: formatValue}, position: "right"}
     data.datasets.push({data: visualization === "absolute" ? cumHueValues : cumHueDensityValues, pointBackgroundColor: "#cc6600", pointRadius: pointRadius(timestamps ? timestamps.length : 0), yAxisID: "yright", tooltip: {callbacks: {afterLabel: () => hueMeasurementDescription}}})
+  }
+
+  if(cumQ0Values && cumQ4Values) {
+    data.datasets.push({data: cumQ0Values, fill: "+1", backgroundColor: "#ff000077", pointBackgroundColor: "#ff0000aa", pointRadius: pointRadius(timestamps ? timestamps.length : 0)}, {data: cumQ4Values, pointBackgroundColor: "#ff0000aa", pointRadius: pointRadius(timestamps ? timestamps.length : 0)});
   }
 
   return (

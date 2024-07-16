@@ -221,7 +221,7 @@ const quartiles = {
   Q1: 1,
   Q2: 2,
   Q3: 3,
-  MAX: 4
+  Q4: 4
 }
 
 let dayjsLocaleSet = false;
@@ -533,7 +533,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     return Math.round(density);
   }
 
-  function transformCumValuesToList(data, visualization, measurement) {
+  function transformCumValuesToList(data, visualization, measurement, quartile) {
     let squares = selectedSquares;
     if(selectedSquares.length === 0) {
       squares = [];
@@ -553,7 +553,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       const squareFeature = grid.find(s => s.properties.id === square);
       totalUsableArea += usableArea(squareFeature);
       for(let i = 0; i < squareMeasurements.length; ++i) {
-        const v = getDataValue(squareMeasurements[i]);
+        const v = getDataValue(squareMeasurements[i], quartile);
         const squareMeasurement = v ? v : 0;
         selectedSquaresCumValues[i] += squareMeasurement;
       }
@@ -714,9 +714,6 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   function changeHueMeasurement(m) {
-    if(visualizeUncertainty && m === hueMeasurements[0]) {
-      setVisualizeUncertainty(false);
-    }
     setHueMeasurement(m);
     if(rawData.values) {
       changeCumValues(measurement, m);
@@ -724,6 +721,9 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   const [visualizeUncertainty, setVisualizeUncertainty] = useState(false);
+
+  const [cumQ0Values, setCumQ0Values] = useState(null);
+  const [cumQ4Values, setCumQ4Values] = useState(null);
 
   function changeUncertaintySwitch(e) {
     if(e.target.checked) {
@@ -735,6 +735,16 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       setVisualizeUncertainty(false);
     }
   }
+
+  useEffect(() => {
+    if(visualizeUncertainty) {
+      setCumQ0Values(transformCumValuesToList(rawData, "absolute", measurement, quartiles.Q0));
+      setCumQ4Values(transformCumValuesToList(rawData, "absolute", measurement, quartiles.Q4));
+    } else {
+      setCumQ0Values(null);
+      setCumQ4Values(null);
+    }
+  }, [visualizeUncertainty]);
 
   const [prismSize, setPrismSize] = useState(zoomToHeight(initialViewState.zoom));
 
@@ -866,7 +876,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     getQ1: s => Math.min(calcElevation(s.properties.id, quartiles.Q1), prismSize),
     getQ2: s => Math.min(calcElevation(s.properties.id, quartiles.Q2), prismSize),
     getQ3: s => Math.min(calcElevation(s.properties.id, quartiles.Q3), prismSize),
-    getQ4: s => Math.min(calcElevation(s.properties.id, quartiles.MAX), prismSize),
+    getQ4: s => Math.min(calcElevation(s.properties.id, quartiles.Q4), prismSize),
     getPosition: getPosition,
     getFillColor1: s => calcPrismColor(s.properties.id),
     getFillColor2: s => {const c = calcPrismColor(s.properties.id); if(!c) return null; const [r,g,b] = c; return [r,g,b,100]},
@@ -1103,7 +1113,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
         <ZoomChangeListener map={mapRef.current} onChange={onChangeZoom} />
       </div>
       <CoordinatesPane mapRef={mapRef} />
-      <LineChart hasDensity={hasDensity} timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} heightMeasurementDescription={heightMeasurementDescription} hueMeasurementDescription={hueMeasurementDescription} />
+      <LineChart hasDensity={hasDensity} timestamps={rawData.timestamps} cumValues={cumValues} cumDensityValues={cumDensityValues} cumHueValues={cumHueValues} cumHueDensityValues={cumHueDensityValues} measurementName={measurement.name} hueMeasurementName={hueMeasurement.name} chartPointColor={chartPointColor} selectedSquaresNum={selectedSquares.length} heightMeasurementDescription={heightMeasurementDescription} hueMeasurementDescription={hueMeasurementDescription} cumQ0Values={cumQ0Values} cumQ4Values={cumQ4Values} />
     </div>
   );
 }
