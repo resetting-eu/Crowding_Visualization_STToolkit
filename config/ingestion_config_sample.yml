@@ -1,0 +1,16 @@
+connector: opendatasoft
+connector_parameters:
+  url: https://data.melbourne.vic.gov.au/api/v2
+  dataset: pedestrian-counting-system-past-hour-counts-per-minute
+  timestamp_field: sensing_datetime
+  location_field: location_id
+  metric_field: total_of_directions
+
+influxdb_parameters:
+  url: <INFLUXDB_URL>
+  token: <INFLUXDB_TOKEN>
+  org: <INFLUXDB_ORG>
+  bucket: <INFLUXDB_BUCKET>
+
+fetch_from: "2024-06-01" # isoformat date or datetime
+polling_interval: 300 # seconds
