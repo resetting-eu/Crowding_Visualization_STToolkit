@@ -20,8 +20,12 @@ BUCKET = cfg["influxdb_parameters"]["bucket"]
 
 client = InfluxDBClient(url=URL, token=TOKEN, org=ORG)
 
+def write_points(points):
+    with client.write_api() as write_api:
+        write_api.write(record=points, bucket=BUCKET)
+
 connector_module = import_module(cfg["connector"])
-fetch_records = connector_module.init(cfg["connector_parameters"])
+ingest_records = connector_module.init(cfg["connector_parameters"], write_points)
 
 STORAGE_FILENAME = "ingestion_storage.json"
 
@@ -45,16 +49,12 @@ def update_storage():
         json.dump(storage, f)
 
 def fetch_and_push():
-    with client.write_api() as write_api:
-        last_timestamp = get_last_timestamp()
-        print(f"Fetching from {last_timestamp}")
-        points, max_dt = fetch_records(last_timestamp)
-        if len(points) > 0:
-            print(f"New points: {len(points)}")
-            write_api.write(record=points, bucket=BUCKET)
-            last_timestamp = datetime.isoformat(max_dt)
-            set_last_timestamp(last_timestamp)
-            update_storage()
+    last_timestamp = get_last_timestamp()
+    print(f"Fetching from {last_timestamp}")
+    max_dt = ingest_records(last_timestamp)
+    last_timestamp = datetime.isoformat(max_dt)
+    set_last_timestamp(last_timestamp)
+    update_storage()
 
 while True:
     fetch_and_push()

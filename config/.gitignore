@@ -1,3 +1,4 @@
 *
 !.gitignore
 !config_sample.yml
+!ingestion_config_sample.yml

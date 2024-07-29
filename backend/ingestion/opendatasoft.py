@@ -1,20 +1,31 @@
 from datetime import datetime
 from urllib.request import urlopen
 import json
+import sys
 from influxdb_client import Point
 
-def init(parameters):
+def init(parameters, write_points):
     url_prefix = parameters["url"]
     dataset = parameters["dataset"]
     timestamp_field = parameters["timestamp_field"]
     location_field = parameters["location_field"]
     metric_field = parameters["metric_field"]
-    def fetch_from(start_timestamp):
+    def ingest_from(start_timestamp):
+        max_dt = datetime.fromisoformat(start_timestamp)
         url = generate_url(url_prefix, dataset, timestamp_field, start_timestamp, None)
-        records = fetch_records(url)
-        points, max_dt = records_to_points(records, location_field, metric_field, timestamp_field)
-        return points, max_dt
-    return fetch_from
+        n_points = 0
+        while url:
+            try:
+                records, url = fetch_records(url)
+            except Exception as e:
+                print(f"Error fetching: ${e}", file=sys.stderr)
+                break
+            points, max_dt = records_to_points(records, location_field, metric_field, timestamp_field)
+            n_points += len(points)
+            write_points(points)
+        print(f"Wrote {n_points} points")
+        return max_dt
+    return ingest_from
 
 def records_to_points(records, location_field, metric_field, timestamp_field):
     points = []
@@ -47,11 +58,8 @@ def record_to_point(record, location_field, metric_field, timestamp_field):
 
 def fetch_records(url):
     next_url = url
-    while next_url:
-        res = json.loads(urlopen(next_url).read())
-        for element in res["records"]:
-            yield element["record"]
-        next_url = get_next_url(res)
+    res = json.loads(urlopen(next_url).read())
+    return [o["record"] for o in res["records"]], get_next_url(res)
 
 def get_next_url(res):
     for link in res["links"]:
