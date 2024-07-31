@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import json
+from copy import deepcopy
 import influxdb_client
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import numpy as np
@@ -137,6 +138,15 @@ def calc_steps_to_forecast(location_timestamps, last_overall_timestamps, min_ste
 def timestamp_to_dt(timestamp):
     return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
+def calc_result_timestamps(last_timestamps):
+    n_real = OUTPUT_TOTAL_TIMESTAMPS - MIN_STEPS
+    res = deepcopy(last_timestamps[-n_real:])
+    last_dt = timestamp_to_dt(last_timestamps[-1])
+    for i in range(MIN_STEPS):
+        timestamp = (last_dt + INTERVAL*(i+1)).isoformat()
+        res.append(timestamp)
+    return res
+
 if __name__ == "__main__":
     real_values, last_timestamps = fetch_real(24*7)
     values = {}
@@ -144,7 +154,8 @@ if __name__ == "__main__":
         location_res = forecast_location(location, real_values, last_timestamps, MIN_STEPS)
         if location_res:
             values[location] = location_res
-    res = {"values": values, "timestamps": last_timestamps}
+    res_timestamps = calc_result_timestamps(last_timestamps)
+    res = {"values": {"total_of_directions": values}, "timestamps": res_timestamps}
 
     with open("result.json", "w") as f:
         json.dump(res, f)
