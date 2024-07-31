@@ -37,6 +37,7 @@ in vec4 instanceFillColors2;
 in vec4 quartileColors;
 in vec4 instanceLineColors;
 in float instanceStrokeWidths;
+in float visualizeUncertainty;
 
 in vec3 instancePickingColors;
 
@@ -58,7 +59,6 @@ uniform float widthMaxPixels;
 uniform int radiusUnits;
 uniform int widthUnits;
 uniform int nColumn;
-uniform bool visualizeUncertainty;
 
 // Result
 out vec4 vColor;
@@ -81,7 +81,7 @@ void main(void) {
   float strokeOffsetRatio = 1.0;
 
   if (extruded) {
-    if(visualizeUncertainty) {
+    if(visualizeUncertainty == 1.0) {
       if(nColumn == 0) {
         if(positions.z < 0.0) {
           elevation = instanceElevations0 * elevationScale;

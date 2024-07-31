@@ -54,7 +54,6 @@ const defaultProps = {
   wireframe: false,
   filled: true,
   stroked: false,
-  visualizeUncertainty: false,
 
   getPosition: {type: 'accessor', value: x => x.position},
   getFillColor1: {type: 'accessor', value: DEFAULT_COLOR},
@@ -63,6 +62,7 @@ const defaultProps = {
   getLineWidth: {type: 'accessor', value: 1},
   getElevation1: {type: 'accessor', value: 1000},
   getElevation2: {type: 'accessor', value: 1000},
+  getVisualizeUncertainty: {type: 'accessor', value: false},
   material: true,
   getColor: {deprecatedFor: ['getFillColor1', 'getFillColor2', 'getLineColor']}
 };
@@ -154,6 +154,12 @@ export default class ColumnLayer extends Layer
         transition: true,
         accessor: 'getQuartileColor',
         defaultValue: DEFAULT_COLOR
+      },
+      visualizeUncertainty: {
+        size: 1,
+        accessor: 'getVisualizeUncertainty',
+        defaultValue: false
+
       },
       instanceLineColors: {
         size: this.props.colorFormat.length,
@@ -290,20 +296,12 @@ export default class ColumnLayer extends Layer
     }
     if (filled) {
       model.setProps({isIndexed: false});
-      if(visualizeUncertainty) {
-        for(let i = 0; i < 5; ++i) {
-          model
-            .setVertexCount(fillVertexCount)
-            .setDrawMode(GL.TRIANGLE_STRIP)
-            .setUniforms({isStroke: false, nColumn: i})
-            .draw();
-        }
-      } else {
+      for(let i = 0; i < 5; ++i) {
         model
           .setVertexCount(fillVertexCount)
           .setDrawMode(GL.TRIANGLE_STRIP)
-          .setUniforms({isStroke: false})
-          .draw();  
+          .setUniforms({isStroke: false, nColumn: i})
+          .draw();
       }
     }
     // When drawing 2d: draw fill before stroke so that the outline is always on top

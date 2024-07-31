@@ -887,7 +887,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     radiusSmall: columnRadius / 2.0,
     onHover: onHover,
     onClick: onClick,
-    visualizeUncertainty: visualizeUncertainty,
+    getVisualizeUncertainty: s => visualizeUncertainty && typeof(values[s.properties.id]) === "object" ? 1.0 : 0.0,
     material: {
       "ambient": 0.35,
       "diffuse": 0.6,
@@ -904,7 +904,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       getQ4: [values, prismSize],
       getPaintTopFace: [values],
       getPosition: [showData, selectedSquares, values],
-      visualizeUncertainty: [visualizeUncertainty]
+      getVisualizeUncertainty: [visualizeUncertainty, values]
     }
   });
   const layers = [geoJsonLayer, prismLayer];
