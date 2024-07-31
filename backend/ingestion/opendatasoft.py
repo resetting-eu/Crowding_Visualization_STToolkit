@@ -1,6 +1,7 @@
 from datetime import datetime
 from urllib.request import urlopen
-import json
+import io
+import csv
 import sys
 from influxdb_client import Point
 
@@ -11,72 +12,42 @@ def init(parameters, write_points):
     location_field = parameters["location_field"]
     metric_field = parameters["metric_field"]
     def ingest_from(start_timestamp):
-        max_dt = datetime.fromisoformat(start_timestamp)
-        url = generate_url(url_prefix, dataset, timestamp_field, start_timestamp, None)
-        n_points = 0
-        while url:
-            try:
-                records, url = fetch_records(url)
-            except Exception as e:
-                print(f"Error fetching: ${e}", file=sys.stderr)
-                break
-            points, max_dt = records_to_points(records, location_field, metric_field, timestamp_field)
-            n_points += len(points)
+        url = csv_url(url_prefix, dataset, timestamp_field, start_timestamp)
+        try:
+            csv_str = urlopen(url).read().decode("utf-8")
+            points, max_dt = csv_str_to_points(csv_str, location_field, metric_field, timestamp_field, start_timestamp)
             write_points(points)
-        print(f"Wrote {n_points} points")
-        return max_dt
+            print(f"Wrote {len(points)} points")
+            return max_dt
+        except Exception as e:
+            print(f"Error fetching: ${e}", file=sys.stderr)
     return ingest_from
 
-def records_to_points(records, location_field, metric_field, timestamp_field):
+def csv_str_to_points(csv_str, location_field, metric_field, timestamp_field, first_timestamp):
+    f = io.StringIO(csv_str)
+    reader = csv.reader(f, delimiter=";")
+    header = next(reader)
+    location_field_i = header.index(location_field)
+    metric_field_i = header.index(metric_field)
+    timestamp_field_i = header.index(timestamp_field)
     points = []
-    max_dt = datetime.fromisoformat("1900-01-01T00:00:00+00:00")
-    for record in records:
-        point, dt = record_to_point(record, location_field, metric_field, timestamp_field)
-        points.append(point)
+    max_dt = datetime.fromisoformat(first_timestamp)
+    for row in reader:
+        dt = datetime.fromisoformat(row[timestamp_field_i])
+        points.append(Point(row[location_field_i])
+                .tag("metric", metric_field)
+                .field("_value", int(row[metric_field_i]))
+                .time(dt))
         if dt > max_dt:
             max_dt = dt
     return points, max_dt
 
-def record_to_point(record, location_field, metric_field, timestamp_field):
-    fields = record["fields"]
-    timestamp = fields[timestamp_field]
-    dt = datetime.fromisoformat(timestamp)
-    loc_id = fields[location_field]
-    value = fields[metric_field]
-
-    return (Point(loc_id)
-                .tag("metric", metric_field)
-                .field("_value", value)
-                .time(dt),
-            dt)
-
-
-
-
-# the following is copied from backend.connectors.common.opendatasoft
-# this is because I'm having trouble with relative imports
-
-def fetch_records(url):
-    next_url = url
-    res = json.loads(urlopen(next_url).read())
-    return [o["record"] for o in res["records"]], get_next_url(res)
-
-def get_next_url(res):
-    for link in res["links"]:
-        if link["rel"] == "next":
-            return link["href"]
-
-def generate_url(url_prefix, dataset, timestamp_field, first_timestamp, last_timestamp):
-    conditions = []
+def csv_url(url_prefix, dataset, timestamp_field, first_timestamp):
+    where = ""
     if first_timestamp:
         first_timestamp = first_timestamp.replace("+00:00", "Z")
-        conditions.append("{}>=date'{}'".format(timestamp_field, first_timestamp))
-    if last_timestamp:
-        last_timestamp = last_timestamp.replace("+00:00", "Z")
-        conditions.append("{}<=date'{}'".format(timestamp_field, last_timestamp))
-    where = "%20and%20".join(conditions)
-    limit = 100
+        where = "&where={}>=date'{}'".format(timestamp_field, first_timestamp)
     order_by = "{}%20asc".format(timestamp_field)
-    url = url_prefix + "/catalog/datasets/" + dataset
-    url += "/records?order_by={}&where={}&limit={}".format(order_by, where, limit)
+    url = url_prefix + "/catalog/datasets/" + dataset + "/exports/csv"
+    url += "?order_by={}{}".format(order_by, where)
     return url

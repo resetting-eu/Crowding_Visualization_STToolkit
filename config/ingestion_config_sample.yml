@@ -12,5 +12,5 @@ influxdb_parameters:
   org: <INFLUXDB_ORG>
   bucket: <INFLUXDB_BUCKET>
 
-fetch_from: "2024-06-01" # isoformat date or datetime
+fetch_from: "2024-06-01T00:00:00+00:00" # isoformat datetime (offset aware)
 polling_interval: 300 # seconds

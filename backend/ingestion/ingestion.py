@@ -52,9 +52,10 @@ def fetch_and_push():
     last_timestamp = get_last_timestamp()
     print(f"Fetching from {last_timestamp}")
     max_dt = ingest_records(last_timestamp)
-    last_timestamp = datetime.isoformat(max_dt)
-    set_last_timestamp(last_timestamp)
-    update_storage()
+    if max_dt:
+        last_timestamp = datetime.isoformat(max_dt)
+        set_last_timestamp(last_timestamp)
+        update_storage()
 
 while True:
     fetch_and_push()
