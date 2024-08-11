@@ -12,6 +12,8 @@ with open(config_file, encoding="utf-8") as f:
     cfg = yaml.load(f.read(), Loader=SafeLoader)
 
 POLLING_INTERVAL = cfg["polling_interval"]
+MODE = cfg["mode"]
+assert MODE in ("live", "historical")
 
 URL = cfg["influxdb_parameters"]["url"]
 TOKEN = cfg["influxdb_parameters"]["token"]
@@ -25,7 +27,10 @@ def write_points(points):
         write_api.write(record=points, bucket=BUCKET)
 
 connector_module = import_module(cfg["connector"])
-ingest_records = connector_module.init(cfg["connector_parameters"], write_points)
+if MODE == "live":
+    ingest_records = connector_module.init(cfg["connector_parameters"], write_points)
+else: # MODE == "historical"
+    ingest_records = connector_module.load_historical(cfg["connector_parameters"], write_points)
 
 STORAGE_FILENAME = "ingestion_storage.json"
 
@@ -48,15 +53,29 @@ def update_storage():
     with open(STORAGE_FILENAME, "w") as f:
         json.dump(storage, f)
 
-def fetch_and_push():
-    last_timestamp = get_last_timestamp()
-    print(f"Fetching from {last_timestamp}")
-    max_dt = ingest_records(last_timestamp)
-    if max_dt:
-        last_timestamp = datetime.isoformat(max_dt)
+def set_last_dt_and_update_storage(dt):
+    if dt:
+        last_timestamp = datetime.isoformat(dt)
         set_last_timestamp(last_timestamp)
         update_storage()
 
-while True:
-    fetch_and_push()
-    sleep(POLLING_INTERVAL)
+
+def fetch_and_push_live():
+    last_timestamp = get_last_timestamp()
+    print(f"Fetching from {last_timestamp}")
+    max_dt = ingest_records(last_timestamp)
+    set_last_dt_and_update_storage(max_dt)
+
+def fetch_and_push_historical():
+    fetch_from = get_last_timestamp()
+    fetch_to = cfg["fetch_to"]
+    print(f"Fetching from {fetch_from} to {fetch_to}")
+    max_dt = ingest_records(fetch_from, fetch_to)
+    set_last_dt_and_update_storage(max_dt)        
+
+if MODE == "live":
+    while True:
+        fetch_and_push_live()
+        sleep(POLLING_INTERVAL)
+else:
+    fetch_and_push_historical()

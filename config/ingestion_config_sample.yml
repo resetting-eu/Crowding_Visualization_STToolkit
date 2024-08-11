@@ -13,4 +13,5 @@ influxdb_parameters:
   bucket: <INFLUXDB_BUCKET>
 
 fetch_from: "2024-06-01T00:00:00+00:00" # isoformat datetime (offset aware)
+mode: "live"
 polling_interval: 300 # seconds
