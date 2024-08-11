@@ -5,6 +5,7 @@ connector_parameters:
   timestamp_field: sensing_datetime
   location_field: location_id
   metric_field: total_of_directions
+  ignore_before: 1w
 
 influxdb_parameters:
   url: <INFLUXDB_URL>
