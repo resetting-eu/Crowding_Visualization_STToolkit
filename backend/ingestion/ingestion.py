@@ -79,3 +79,4 @@ if MODE == "live":
         sleep(POLLING_INTERVAL)
 else:
     fetch_and_push_historical()
+    client.close()
