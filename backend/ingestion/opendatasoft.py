@@ -17,9 +17,7 @@ def init(parameters, write_points):
         try:
             start_timestamp = actual_first_timestamp(start_timestamp, ignore_before)
             csv_str = urlopen(url).read().decode("utf-8")
-            points, max_dt = csv_str_to_points(csv_str, location_field, metric_field, timestamp_field, start_timestamp)
-            write_points(points)
-            print(f"Wrote {len(points)} points")
+            max_dt = csv_str_to_points_and_push(csv_str, location_field, metric_field, timestamp_field, start_timestamp, write_points)
             return max_dt
         except Exception as e:
             print(f"Error fetching: ${e}", file=sys.stderr)
@@ -35,21 +33,20 @@ def load_historical(parameters, write_points):
         url = csv_url(url_prefix, dataset, timestamp_field, start_timestamp, end_timestamp)
         try:
             csv_str = urlopen(url).read().decode("utf-8")
-            points, max_dt = csv_str_to_points(csv_str, location_field, metric_field, timestamp_field, start_timestamp)
-            write_points(points)
-            print(f"Wrote {len(points)} points")
+            max_dt = csv_str_to_points_and_push(csv_str, location_field, metric_field, timestamp_field, start_timestamp, write_points)
             return max_dt
         except Exception as e:
             print(f"Error fetching: ${e}", file=sys.stderr)
     return ingest_from
 
-def csv_str_to_points(csv_str, location_field, metric_field, timestamp_field, first_timestamp):
+def csv_str_to_points_and_push(csv_str, location_field, metric_field, timestamp_field, first_timestamp, write_points):
     f = io.StringIO(csv_str)
     reader = csv.reader(f, delimiter=";")
     header = next(reader)
     location_field_i = header.index(location_field)
     metric_field_i = header.index(metric_field)
     timestamp_field_i = header.index(timestamp_field)
+    total_points = 0
     points = []
     max_dt = datetime.fromisoformat(first_timestamp)
     for row in reader:
@@ -58,9 +55,14 @@ def csv_str_to_points(csv_str, location_field, metric_field, timestamp_field, fi
                 .tag("metric", metric_field)
                 .field("_value", int(row[metric_field_i]))
                 .time(dt))
+        total_points += 1
         if dt > max_dt:
             max_dt = dt
-    return points, max_dt
+        if len(points) >= 1000:
+            write_points(points)
+            points = []
+    print(f"Wrote {total_points} points")
+    return max_dt
 
 def csv_url(url_prefix, dataset, timestamp_field, first_timestamp, last_timestamp=None):
     conditions = []
