@@ -2,6 +2,7 @@ import json
 from datetime import timedelta, datetime
 from time import sleep
 from copy import deepcopy
+from threading import Thread
 import influxdb_client
 from influxdb_client import Point
 from statsmodels.tsa.statespace.sarimax import SARIMAX
@@ -25,6 +26,7 @@ N_SIMULATIONS = 1000 # simulations per forecast
 assert OUTPUT_TOTAL_TIMESTAMPS > MIN_STEPS
 
 location_timestamps = {}
+saved_predicted_values = {}
 last_real_dt = datetime.fromisoformat("1900-01-01T00:00:00+00:00")
 
 N = 24*7 # TODO parametrize
@@ -179,45 +181,30 @@ def train_and_forecast(real_values, last_timestamps):
         location_res = forecast_location(location, real_values, last_timestamps, MIN_STEPS)
         if location_res:
             values[location] = location_res
-    return values, last_timestamps[-1]
+    return values
 
-def push_values(values, last_timestamp):
-    with influxdb_client.InfluxDBClient(url=url, token=token, org=org, debug=False) as client:
-        delete_api = client.delete_api()
-        with client.write_api() as write_api:
-            for location in values:
-                delete_api.delete("1970-01-01T00:00:00Z", last_timestamp, f"_measurement={location}", bucket=bucket_forecasted, org=org)
-                points = []
-                last_dt = timestamp_to_dt(last_timestamp)
-                for i in range(len(values[location])):
-                    dt = last_dt - (len(values[location]) - i) * INTERVAL
-                    for j in range(5):
-                        points.append(Point(location)
-                                        .tag("quartile", j)
-                                        .field("_value", values[location][i][j])
-                                        .time(dt))
-                write_api.write(record=points, bucket=bucket_forecasted)
+def prepare_values(real_values, real_timestamps):
+    res = {"values": {"total_of_directions": {}}, "timestamps": []}
+    for location in real_values:
+        if location not in saved_predicted_values:
+            continue
+        # TODO the metric name should be parametrized
+        res["values"]["total_of_directions"][location] = [real_values[location][timestamp] for timestamp in sorted(real_values[location])]
+        res["values"]["total_of_directions"][location] += saved_predicted_values[location]
+    last_dt = timestamp_to_dt(real_timestamps[-1])
+    res["timestamps"] = deepcopy(real_timestamps)
+    for i in range(1, MIN_STEPS + 1):
+        res["timestamps"].append((last_dt + INTERVAL * i).isoformat().replace("+00:00", "Z"))
+    res["timestamps"] = res["timestamps"][-OUTPUT_TOTAL_TIMESTAMPS:]
+    for location in res["values"]["total_of_directions"]:
+        res["values"]["total_of_directions"][location] = res["values"]["total_of_directions"][location][-OUTPUT_TOTAL_TIMESTAMPS:]
+    return res
 
-def storage_filename():
-    return "storage.json" # TODO replace with hash of config filepath
+def save_predicted_values(predicted_values):
+    for location in predicted_values:
+        saved_predicted_values[location] = predicted_values[location]
 
-def update_storage():
-    obj = {"location_timestamps": location_timestamps, "last_real_dt": last_real_dt.isoformat()}
-    with open(storage_filename(), "w") as f:
-        json.dump(obj, f)
-
-def read_storage():
-    try:
-        with open(storage_filename()) as f:
-            obj = json.load(f)
-        global location_timestamps, last_real_dt
-        location_timestamps = obj["location_timestamps"]
-        last_real_dt = timestamp_to_dt(obj["last_real_dt"])
-        print("Storage read")
-    except FileNotFoundError:
-        print("Forecasting polling job storage not found")
-
-def poll_and_push():
+def poll_and_push(new_data_handler):
     print("Querying real values")
     values, last_timestamps = query_real_data()
     dirty_locations = check_dirty_locations(values)
@@ -229,26 +216,41 @@ def poll_and_push():
     if new_last_dt > last_real_dt:
         # need to retrain all locations        
         last_real_dt = new_last_dt
+        values_for_training = values
         print("training all locations")
     else:
         # can retrain only "dirty" locations
         dirty_location_values = {}
         for location in dirty_locations:
             dirty_location_values[location] = values[location]
-        values = dirty_location_values
+        values_for_training = dirty_location_values
         print(f"training {len(values)} locations")
-    new_values, last_timestamp = train_and_forecast(values, last_timestamps)
-    push_values(new_values, last_timestamp)
+    new_values = train_and_forecast(values_for_training, last_timestamps)
     update_location_timestamps(values)
-    update_storage()
+    save_predicted_values(new_values)
+    res = prepare_values(values, last_timestamps)
+    new_data_handler(res)
     print("Iteration complete")
 
 SLEEP_SECONDS = 60*5 # TODO parametrize?
 
-if __name__ == "__main__":
-    read_storage()
+def run_job(new_data_handler):
     while True:
-        poll_and_push()
+        poll_and_push(new_data_handler)
         print("Sleeping")
         sleep(SLEEP_SECONDS)
 
+def run_job_on_new_thread(new_data_handler):
+    _, last_timestamps = query_real_data()
+    t = Thread(target=run_job, args=(new_data_handler))
+    t.start()
+    return last_timestamps[-1]
+
+if __name__ == "__main__":
+    prediction_result_counter = 0
+    def save_result(values):
+        global prediction_result_counter
+        with open(f"prediction_result_{prediction_result_counter}.json", "w") as f:
+            json.dump(values, f)
+        prediction_result_counter += 1
+    run_job(save_result)
