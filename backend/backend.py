@@ -14,6 +14,10 @@ from uuid import uuid4
 from time import perf_counter
 import sys
 
+import connectors.influxdb_live as live
+import connectors.influxdb_history as history
+import connectors.prediction as prediction
+
 config_file = environ["CONFIG"] if "CONFIG" in environ else "config.yml"
 with open(config_file, encoding="utf-8") as f:
     cfg = yaml.load(f.read(), Loader=SafeLoader) # TODO mudar Loader
@@ -331,21 +335,6 @@ with app.app_context():
     if not has_users:
         create_first_user()
 
-# import connector modules
-def import_connector(name):
-    if name in connectors:
-        return connectors[name]
-
-    for file in listdir("connectors"):
-        basename = file[:-3]
-        if basename == name and file.endswith(".py"):
-            if LOCAL_ENV:
-                module = import_module("." + basename, "backend.connectors")
-            else:
-                module = import_module("connectors." + basename)
-            connectors[name] = module.generate_handler
-            return connectors[name]
-
 # generates the actual handler function that is configured in flask
 def generate_flask_handler(f):
     def actual_handler():
@@ -353,20 +342,15 @@ def generate_flask_handler(f):
         return jsonify(res)
     return actual_handler
 
-def configure_metadata_handler_make_handler(name):
-    this_cfg = cfg["metadata"][name]
-    connector = import_connector(this_cfg["connector"])
-    handler = connector(this_cfg["parameters"])
-    handler = time_endpoint(handler)
-    return handler
+def file_loader(filepath):
+    with open(filepath) as f:
+        return json.load(f)
 
 def configure_metadata_handler():
-    locations_handler = configure_metadata_handler_make_handler("locations")
-    parishes_handler = configure_metadata_handler_make_handler("parishes")
     def metadata_handler(args):
         res = {}
-        res["locations"] = locations_handler(args)
-        res["parishes"] = parishes_handler(args)
+        res["locations"] = file_loader(cfg["metadata"]["locations"]["filepath"])
+        res["parishes"] = file_loader(cfg["metadata"]["parishes"]["filepath"])
         for x in cfg["metadata"]:
             if x != "locations" and x != "parishes":
                 res[x] = cfg["metadata"][x]
@@ -375,19 +359,23 @@ def configure_metadata_handler():
     handler = login_required(handler)
     app.add_url_rule("/metadata", view_func=handler)
 
+def configure_handler(module, name):
+    handler = module.generate_handler
+    derived_metrics = cfg[name].get("derived_metrics")
+    if derived_metrics:
+        handler = derived_metrics_handler(handler, derived_metrics)
+    handler = time_endpoint(handler)
+    handler = generate_flask_handler(handler)
+    handler = login_required(handler)
+    handler.__name__ = handler.__name__ + "_" + name # flask requires handler functions to have unique names
+    app.add_url_rule('/' + name, view_func=handler)
+
+modules = {"live": live, "history": history, "prediction": prediction}
+
 # instantiate endpoints as defined in configuration file
 for name in cfg:
-    assert name in ("history", "live", "metadata", "walkableAreas") # TODO verificar que metadata existe e pelo menos um de (history,locations) existe e que não há repetições
+    assert name in ("history", "live", "metadata", "prediction") # TODO verificar que metadata existe e pelo menos um de (history,locations) existe e que não há repetições
     if name == "metadata":
         configure_metadata_handler()
     else:
-        connector = import_connector(cfg[name]["connector"])
-        handler = connector(cfg[name]["parameters"])
-        derived_metrics = cfg[name].get("derived_metrics")
-        if derived_metrics:
-            handler = derived_metrics_handler(handler, derived_metrics)
-        handler = time_endpoint(handler)
-        handler = generate_flask_handler(handler)
-        handler = login_required(handler)
-        handler.__name__ = handler.__name__ + "_" + name # flask requires handler functions to have unique names
-        app.add_url_rule('/' + name, view_func=handler)
+        configure_handler(modules[name], name)

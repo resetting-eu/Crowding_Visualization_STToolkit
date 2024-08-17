@@ -1,26 +1,35 @@
 history:
-  connector: influxdb_history
-  parameters:
-    url: <INFLUXDB_URL>
-    token: <INFLUXDB_TOKEN>
-    org: <INFLUXDB_ORG>
-    bucket: <INFLUXDB_BUCKET>
-    metric_variable: _field # if omitted, assumes there is only one metric
-    location_variable: _measurement
-    filters: # following is an example filter that selects only certain metric names
-      - (r) => r["_field"] =~ /^C1$|^C2$|^C3$|^C4$|^C5$|^C6$|^C7$|^C8$|^C9$|^C10$|^C11$|^E1$|^E2$|^E3$|^E4$|^E5$|^E7$|^E8$|^E9$|^E10$/
+  url: <INFLUXDB_URL>
+  token: <INFLUXDB_TOKEN>
+  org: <INFLUXDB_ORG>
+  bucket: <INFLUXDB_BUCKET>
+  metric_variable: _field # if omitted, assumes there is only one metric
+  location_variable: _measurement
+  filters: # following is an example filter that selects only certain metric names
+    - (r) => r["_field"] =~ /^C1$|^C2$|^C3$|^C4$|^C5$|^C6$|^C7$|^C8$|^C9$|^C10$|^C11$|^E1$|^E2$|^E3$|^E4$|^E5$|^E7$|^E8$|^E9$|^E10$/
+
+live:
+  url: <INFLUXDB_URL>
+  token: <INFLUXDB_TOKEN>
+  org: <INFLUXDB_ORG>
+  bucket: <INFLUXDB_BUCKET>
+  metric_variable: _field # if omitted, assumes there is only one metric
+  location_variable: _measurement
+
+prediction:
+  url: <INFLUXDB_URL>
+  token: <INFLUXDB_TOKEN>
+  org: <INFLUXDB_ORG>
+  bucket: <INFLUXDB_BUCKET>
+  metric_variable: _field # if omitted, assumes there is only one metric
+  location_variable: _measurement
 
 metadata:
   locations:
-    connector: mongodb_locations
-    parameters:
-      url: <MONGODB_URL>
-      collection: <MONGODB_COLLECTION>
-      unusable_area_property: unusable_area # change this as needed
+    filepath: <LOCATIONS_FILEPATH>
+    unusable_area_property: unusable_area # change this as needed
   parishes:
-    connector: static # use this to serve documents without needing MongoDB
-    parameters:
-      path: /backend/config/<FILENAME>
+    filepath: <PARISHES_FILEPATH>
   # the following options are related to visualization properties
   locale: pt
   timezone: Europe/Lisbon
@@ -30,7 +39,8 @@ metadata:
     zoom: 15
     pitch: 30
   hasDensity: true # requires usable_area or unusable_area in the locations' properties
-  hasLive: false # if set to true, it's necessary to configure the "live" endpoint, as done with "history" above
+  hasLive: true # if set to true, it's necessary to configure the "live" endpoint
+  hasPrediction: true # if set to true, it's necessary to configure the "prediction" endpoint
   columnRadius: 12
   metrics:
     - name: "C1"
@@ -43,11 +53,6 @@ metadata:
       shortDescription: "roaming"
       unit: "devices"
       cap: 100
-
-walkableAreas:
-  connector: static
-  parameters:
-    path: /backend/config/<FILENAME>
 
 auth:
   database_uri: mysql://user:password@mariadb:3306/auth
