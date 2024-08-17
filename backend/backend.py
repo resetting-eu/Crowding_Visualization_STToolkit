@@ -14,10 +14,6 @@ from uuid import uuid4
 from time import perf_counter
 import sys
 
-import connectors.influxdb_live as live
-import connectors.influxdb_history as history
-import connectors.prediction as prediction
-
 config_file = environ["CONFIG"] if "CONFIG" in environ else "config.yml"
 with open(config_file, encoding="utf-8") as f:
     cfg = yaml.load(f.read(), Loader=SafeLoader) # TODO mudar Loader
@@ -39,6 +35,10 @@ if LOCAL_ENV:
     from .db_model import db, User, Role
     from .hash import gen_hash, check_hash
     from .send_email import send_email
+    from .connectors import influxdb_live as live
+    from .connectors import influxdb_history as history
+    from .connectors import prediction as prediction
+
 else:
     app.config["SESSION_COOKIE_SECURE"] = True
     LIMITER_STORAGE_URI = "memcached://memcached:11211"
@@ -46,6 +46,10 @@ else:
     from db_model import db, User, Role
     from hash import gen_hash, check_hash
     from send_email import send_email
+    import connectors.influxdb_live as live
+    import connectors.influxdb_history as history
+    import connectors.prediction as prediction
+
 
 app.config["SECRET_KEY"] = cfg_auth["secret_key"]
 app.config["SQLALCHEMY_DATABASE_URI"] = cfg_auth["database_uri"]
@@ -359,8 +363,8 @@ def configure_metadata_handler():
     handler = login_required(handler)
     app.add_url_rule("/metadata", view_func=handler)
 
-def configure_handler(module, name):
-    handler = module.generate_handler
+def configure_handler(module, name, parameters):
+    handler = module.generate_handler(parameters)
     derived_metrics = cfg[name].get("derived_metrics")
     if derived_metrics:
         handler = derived_metrics_handler(handler, derived_metrics)
@@ -378,4 +382,4 @@ for name in cfg:
     if name == "metadata":
         configure_metadata_handler()
     else:
-        configure_handler(modules[name], name)
+        configure_handler(modules[name], name, cfg[name])

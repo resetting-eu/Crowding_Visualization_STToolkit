@@ -3,6 +3,7 @@ from datetime import timedelta, datetime
 from time import sleep
 from copy import deepcopy
 from threading import Thread
+import sys
 import influxdb_client
 from influxdb_client import Point
 from statsmodels.tsa.statespace.sarimax import SARIMAX
@@ -30,6 +31,9 @@ saved_predicted_values = {}
 last_real_dt = datetime.fromisoformat("1900-01-01T00:00:00+00:00")
 
 N = 24*7 # TODO parametrize
+
+def printerr(s):
+    print(s, file=sys.stderr)
 
 def query_real_data():
     query_str = f"""
@@ -87,10 +91,10 @@ def update_location_timestamps(values):
         location_timestamps[location] = sorted(values[location].keys())
 
 def forecast_location(location, values, last_timestamps, steps):
-    print(f"forecasting location {location}")
+    printerr(f"forecasting location {location}")
 
     if len(values[location]) < MIN_REAL_TIMESTAMPS:
-        print(f"skipped training location {location}: not enough data")
+        printerr(f"skipped training location {location}: not enough data")
         return
 
     # sorted timestamps in real data, which can span an earlier time range than last_timestamps
@@ -99,7 +103,7 @@ def forecast_location(location, values, last_timestamps, steps):
     last_location_dt = timestamp_to_dt(timestamps[-1])
     last_overall_dt = timestamp_to_dt(last_timestamps[-1])
     if last_overall_dt - last_location_dt > MAX_LOCAL_TO_OVERALL_GAP:
-        print(f"skipped training location {location}: "
+        printerr(f"skipped training location {location}: "
               + "too big of a gap between location available time range and overall time range")
         return
     
@@ -108,7 +112,7 @@ def forecast_location(location, values, last_timestamps, steps):
     for timestamp in timestamps[1:]:
         dt = timestamp_to_dt(timestamp)
         if dt - last_dt > INTERVAL:
-            print(f"missing timestamp in location {location}! (skipped) last: {last_dt.isoformat()}; current: {dt.isoformat()}")
+            printerr(f"missing timestamp in location {location}! (skipped) last: {last_dt.isoformat()}; current: {dt.isoformat()}")
             return
         last_dt = dt
 
@@ -205,11 +209,11 @@ def save_predicted_values(predicted_values):
         saved_predicted_values[location] = predicted_values[location]
 
 def poll_and_push(new_data_handler):
-    print("Querying real values")
+    printerr("Querying real values")
     values, last_timestamps = query_real_data()
     dirty_locations = check_dirty_locations(values)
     if not dirty_locations:
-        print("No dirty locations")
+        printerr("No dirty locations")
         return
     new_last_dt = get_last_dt(values)
     global last_real_dt
@@ -217,32 +221,32 @@ def poll_and_push(new_data_handler):
         # need to retrain all locations        
         last_real_dt = new_last_dt
         values_for_training = values
-        print("training all locations")
+        printerr("training all locations")
     else:
         # can retrain only "dirty" locations
         dirty_location_values = {}
         for location in dirty_locations:
             dirty_location_values[location] = values[location]
         values_for_training = dirty_location_values
-        print(f"training {len(values)} locations")
+        printerr(f"training {len(values)} locations")
     new_values = train_and_forecast(values_for_training, last_timestamps)
     update_location_timestamps(values)
     save_predicted_values(new_values)
     res = prepare_values(values, last_timestamps)
     new_data_handler(res)
-    print("Iteration complete")
+    printerr("Iteration complete")
 
 SLEEP_SECONDS = 60*5 # TODO parametrize?
 
 def run_job(new_data_handler):
     while True:
         poll_and_push(new_data_handler)
-        print("Sleeping")
+        printerr("Sleeping")
         sleep(SLEEP_SECONDS)
 
 def run_job_on_new_thread(new_data_handler):
     _, last_timestamps = query_real_data()
-    t = Thread(target=run_job, args=(new_data_handler))
+    t = Thread(target=run_job, args=[new_data_handler])
     t.start()
     return last_timestamps[-1]
 

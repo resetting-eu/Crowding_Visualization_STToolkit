@@ -19,6 +19,7 @@ def new_data_handler(values):
 def generate_handler(parameters):
     run_job_on_new_thread(new_data_handler)
     def prediction_handler(args):
+        global result, clients_last_data_version
         if not result:
             return {}
         client_id = args.get("client_id")
@@ -27,7 +28,7 @@ def generate_handler(parameters):
             clients_last_data_version[client_id] = -1
             return {"client_id": client_id}
         client_version = clients_last_data_version[client_id]
-        if client_version > last_data_version:
+        if client_version < last_data_version:
             clients_last_data_version[client_id] = last_data_version
             return result
         else:
