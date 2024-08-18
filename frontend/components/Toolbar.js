@@ -7,9 +7,9 @@ import Typography from '@mui/material/Typography';
 
 import Pane from './Pane';
 
-function Toolbar({panes, freeze}) {
-  const [pane, setPane] = useState(null);
-  const [open, setOpen] = useState(false);
+function Toolbar({panes, freeze, defaultPane}) {
+  const [pane, setPane] = useState(defaultPane !== undefined ? defaultPane : null);
+  const [open, setOpen] = useState(true);
   const [paneIsCloseable, setPaneIsCloseable] = useState(true);
 
   const closeAfterFreeze = useRef(false);

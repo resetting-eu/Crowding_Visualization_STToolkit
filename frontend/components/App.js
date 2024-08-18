@@ -33,6 +33,8 @@ import Typography from '@mui/material/Typography';
 import Switch from '@mui/material/Switch';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import ToggleButton from '@mui/material/ToggleButton';
 
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
@@ -212,6 +214,8 @@ const statuses = {
   viewingLive: {caption: "Viewing live data"},
   viewingLiveNotTracking: {caption: "Not automatically tracking latest moment"},
   viewingLivePaused: {caption: "Live update paused (buffer limit reached)"},
+  loadingPrediction: {caption: "Loading predictive data...", loading: true},
+  viewingPrediction: {caption: "Viewing predictive data"},
   animating: {},
   noData: {caption: "No data loaded"}
 }
@@ -265,6 +269,14 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   const [parishValue, setParishValue] = useState("");
+
+  const [loadPane, setLoadPane] = useState("history");
+
+  function changeLoadPane(_, v) {
+    if(v && !status.loading) {
+      setLoadPane(v);
+    }
+  }
 
   const [start, setStart] = useState("2022-06-01T00:00:00Z");
   const [end, setEnd] = useState("2022-06-01T03:00:00Z");
@@ -377,6 +389,46 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   const client_id = useRef(null);
+
+  function getPredictionClientId() {
+    return new Promise((resolve, reject) => {
+      const intervalId = setInterval(() => {
+        console.log("polling /prediction to get clientId");
+        fetch(backendUrl + "/prediction", {credentials: "include"})
+          .then(r => {gotoLoginIf401(r); return r.json()})
+          .then(data => {
+            if(data.client_id) {
+              clearInterval(intervalId);
+              resolve(data.client_id);
+            }
+          })
+      }, 5000)
+    }); 
+  }
+
+  function getPredictionValues() {
+    return new Promise((resolve, reject) => {
+      fetch(backendUrl + "/prediction?client_id=" + client_id.current, {credentials: "include"})
+        .then(r => {gotoLoginIf401(r); return r.json()})
+        .then(data => resolve(data));
+    });
+  }
+
+  function loadPrediction() {
+    changeStatus(statuses.loadingPrediction);
+    getPredictionClientId()
+      .then(v => {
+        client_id.current = v;
+        return getPredictionValues();
+      })
+      .then(data => {
+        changeStatus(statuses.viewingPrediction);
+        setRawData(data);
+      })
+      .catch(e => {
+        console.error(`error while loading prediction: ${e}`);
+      });
+  }
 
   useEffect(() => {
     if(!rawData.values)
@@ -983,36 +1035,48 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   return (
     <div>
       <StatusPane status={status} />
-      <Toolbar freeze={freezeToolbar} panes={[
-        {title: "History", icon: <ManageHistoryIcon/>, stayOnFreeze: true,
-         description: "Load historical data into the application (note that for this demonstration all parameters are ignored).", // TODO remove note after demo
+      <Toolbar freeze={freezeToolbar} defaultPane="Load data" panes={[
+        {title: "Load data", icon: <ManageHistoryIcon/>, stayOnFreeze: true,
+         description: "Load data into the application",
          content:
           <Stack spacing={2}>
-            <Stack direction="row" spacing={2}>
-              <DateTimeWidget label="Start" value={start} onChange={setStart} disabled={loadingHistory} timezone={timezone} />
-              <DateTimeWidget label="End" value={end} onChange={setEnd} disabled={loadingHistory} timezone={timezone} />
-            </Stack>
-            <Stack direction="row" spacing={2} sx={{textAlign: "center"}} maxWidth={true} float="left">
-              <TextField type="number" label="Interval" sx={{width: 75}} value={everyNumber} onChange={e => setEveryNumber(e.target.value)} disabled={loadingHistory} />
-              <TextField select value={everyUnit} label="Unit" onChange={change(setEveryUnit)} sx={{width: 95}} disabled={loadingHistory} >
-                <MenuItem value="m" key="m">Minute</MenuItem>
-                <MenuItem value="h" key="h">Hour</MenuItem>
-                <MenuItem value="d" key="d">Day</MenuItem>
-                <MenuItem value="w" key="w">Week</MenuItem>
-              </TextField>
-              <span style={{position: "relative", top:"15px"}}>
-                <MUITooltip title="Interval defines the time window that will be used to aggregate and average the data">
-                  <HelpIcon />
-                </MUITooltip>
-              </span>
-              <span style={{position: "relative", top: "10px", left: "65px"}}>
-                <Switch checked={loadSelectedSquaresOnly} onChange={e => setLoadSelectedSquaresOnly(e.target.checked)} />
-                <Typography component="span">Selected locations only</Typography>
-              </span>
-            </Stack>
-            <div style={{position: "relative", width: "100%", textAlign: "center"}}>
-              {loadingHistory ? <CircularProgress /> : <Button variant="contained" onClick={load}>Load</Button>}
-            </div>
+            <ToggleButtonGroup exclusive value={loadPane} onChange={changeLoadPane}>
+              <ToggleButton value="history">History</ToggleButton>
+              <ToggleButton value="live">Live</ToggleButton>
+              <ToggleButton value="prediction">Prediction</ToggleButton>
+            </ToggleButtonGroup>
+            {loadPane == "history" &&
+            <Stack spacing={2}>
+              <Stack direction="row" spacing={2}>
+                <DateTimeWidget label="Start" value={start} onChange={setStart} disabled={loadingHistory} timezone={timezone} />
+                <DateTimeWidget label="End" value={end} onChange={setEnd} disabled={loadingHistory} timezone={timezone} />
+              </Stack>
+              <Stack direction="row" spacing={2} sx={{textAlign: "center"}} maxWidth={true} float="left">
+                <TextField type="number" label="Interval" sx={{width: 75}} value={everyNumber} onChange={e => setEveryNumber(e.target.value)} disabled={loadingHistory} />
+                <TextField select value={everyUnit} label="Unit" onChange={change(setEveryUnit)} sx={{width: 95}} disabled={loadingHistory} >
+                  <MenuItem value="m" key="m">Minute</MenuItem>
+                  <MenuItem value="h" key="h">Hour</MenuItem>
+                  <MenuItem value="d" key="d">Day</MenuItem>
+                  <MenuItem value="w" key="w">Week</MenuItem>
+                </TextField>
+                <span style={{position: "relative", top:"15px"}}>
+                  <MUITooltip title="Interval defines the time window that will be used to aggregate and average the data">
+                    <HelpIcon />
+                  </MUITooltip>
+                </span>
+                <span style={{position: "relative", top: "10px", left: "65px"}}>
+                  <Switch checked={loadSelectedSquaresOnly} onChange={e => setLoadSelectedSquaresOnly(e.target.checked)} />
+                  <Typography component="span">Selected locations only</Typography>
+                </span>
+              </Stack>
+              <div style={{position: "relative", width: "100%", textAlign: "center"}}>
+                {loadingHistory ? <CircularProgress /> : <Button variant="contained" onClick={load}>Load</Button>}
+              </div>
+            </Stack>}
+            {loadPane == "live" &&
+            (currentStatusIs(statuses.loadingLive) ? <CircularProgress /> : <Button variant="contained" onClick={loadLive}>Load</Button>)}
+            {loadPane == "prediction" &&
+            (currentStatusIs(statuses.loadingPrediction) ? <CircularProgress /> : <Button variant="contained" onClick={loadPrediction}>Load</Button>)}
           </Stack>},
         {title: "Visibility", icon: <VisibilityIcon/>,
         description: "Choose which cylinders and areas are shown on the map.",
@@ -1094,8 +1158,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Stack direction="row" spacing={2}>
           <CustomSlider value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"}  colors={sliderColors} live={currentStatusIs(statuses.viewingLive)}/>
-          {hasLive && 
-            <Button variant="contained" onClick={liveButtonOnClick} disabled={currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.loadingLive)}>Live</Button>}
+          <Button variant="contained" onClick={liveButtonOnClick} disabled={!hasLive || currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.loadingLive)}>Live</Button>
         </Stack>
       </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>
