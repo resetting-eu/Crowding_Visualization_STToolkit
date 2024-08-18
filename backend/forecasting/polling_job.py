@@ -26,7 +26,7 @@ N_SIMULATIONS = 1000 # simulations per forecast
 
 assert OUTPUT_TOTAL_TIMESTAMPS > MIN_STEPS
 
-location_timestamps = {}
+last_real_data = {}
 saved_predicted_values = {}
 last_real_dt = datetime.fromisoformat("1900-01-01T00:00:00+00:00")
 
@@ -73,7 +73,7 @@ def get_query_values(query_str):
 def check_dirty_locations(values):
     dirty_locations = []
     for location in values:
-        if sorted(values[location].keys()) != location_timestamps.get(location):
+        if values[location] != last_real_data.get(location):
             dirty_locations.append(location)
     return dirty_locations
 
@@ -85,10 +85,6 @@ def get_last_dt(values):
         if location_last_dt > max_dt:
             max_dt = location_last_dt
     return max_dt
-
-def update_location_timestamps(values):
-    for location in values:
-        location_timestamps[location] = sorted(values[location].keys())
 
 def forecast_location(location, values, last_timestamps, steps):
     printerr(f"forecasting location {location}")
@@ -208,6 +204,10 @@ def save_predicted_values(predicted_values):
     for location in predicted_values:
         saved_predicted_values[location] = predicted_values[location]
 
+def save_real_values(real_values):
+    global last_real_data
+    last_real_data = real_values
+
 def poll_and_push(new_data_handler):
     printerr("Querying real values")
     values, last_timestamps = query_real_data()
@@ -230,7 +230,7 @@ def poll_and_push(new_data_handler):
         values_for_training = dirty_location_values
         printerr(f"training {len(values)} locations")
     new_values = train_and_forecast(values_for_training, last_timestamps)
-    update_location_timestamps(values)
+    save_real_values(values)
     save_predicted_values(new_values)
     res = prepare_values(values, last_timestamps)
     new_data_handler(res)
