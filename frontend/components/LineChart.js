@@ -55,7 +55,7 @@ function LineChart({hasDensity, timestamps, cumValues, cumDensityValues, cumHueV
   }
 
   if(cumQ0Values && cumQ4Values) {
-    data.datasets.push({data: cumQ0Values, fill: "+1", backgroundColor: "#ff000077", pointBackgroundColor: "#ff0000aa", pointRadius: pointRadius(timestamps ? timestamps.length : 0)}, {data: cumQ4Values, pointBackgroundColor: "#ff0000aa", pointRadius: pointRadius(timestamps ? timestamps.length : 0)});
+    data.datasets.push({data: cumQ0Values, fill: "+1", backgroundColor: "#ff000044", pointBackgroundColor: "#ff0000aa", pointRadius: pointRadius(timestamps ? timestamps.length : 0)}, {data: cumQ4Values, pointBackgroundColor: "#ff0000aa", pointRadius: pointRadius(timestamps ? timestamps.length : 0)});
   }
 
   return (
