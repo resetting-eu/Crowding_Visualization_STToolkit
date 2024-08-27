@@ -100,21 +100,21 @@ void main(void) {
         if(positions.z < 0.0) {
           elevation = instanceElevations2 * elevationScale;
         } else {
-          elevation = instanceElevations2 * elevationScale + 1.0;
+          elevation = instanceElevations2 * elevationScale + 5.0;
         }
         color = quartileColors;
       } else if(nColumn == 3) {
         if(positions.z < 0.0) {
-          elevation = instanceElevations2 * elevationScale + 1.0;  
+          elevation = instanceElevations2 * elevationScale + 5.0;  
         } else {
-          elevation = instanceElevations3 * elevationScale + 1.0;
+          elevation = instanceElevations3 * elevationScale + 5.0;
         }
         color = instanceFillColors1;;
       } else { // nColumn == 4
         if(positions.z < 0.0) {
           elevation = 0.0;
         } else {
-          elevation = instanceElevations4 * elevationScale + 1.0;
+          elevation = instanceElevations4 * elevationScale + 5.0;
         }
         color = instanceFillColors2;
       }
