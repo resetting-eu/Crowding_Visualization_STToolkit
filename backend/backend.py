@@ -38,6 +38,7 @@ if LOCAL_ENV:
     from .connectors import influxdb_live as live
     from .connectors import influxdb_history as history
     from .connectors import prediction as prediction
+    from .connectors import static as static
 
 else:
     app.config["SESSION_COOKIE_SECURE"] = True
@@ -49,6 +50,7 @@ else:
     import connectors.influxdb_live as live
     import connectors.influxdb_history as history
     import connectors.prediction as prediction
+    import connectors.static as static
 
 
 app.config["SECRET_KEY"] = cfg_auth["secret_key"]
@@ -381,5 +383,7 @@ for name in cfg:
     assert name in ("history", "live", "metadata", "prediction") # TODO verificar que metadata existe e pelo menos um de (history,locations) existe e que não há repetições
     if name == "metadata":
         configure_metadata_handler()
+    elif name == "history" and "path" in cfg[name]: # allow serving static content
+        configure_handler(static, name, cfg[name])
     else:
         configure_handler(modules[name], name, cfg[name])
