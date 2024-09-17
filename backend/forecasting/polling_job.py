@@ -6,25 +6,42 @@ from threading import Thread
 import sys
 import influxdb_client
 from influxdb_client import Point
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 import numpy as np
+from importlib import import_module
 
-# TODO read from config file
-url= "http://localhost:8086"
-token= "4_n9dEXlExEUds262HjnxImGkkEF9SjA0jC8qBKdbb0W3tg5Eic4tutm9n3FEzwiwBV276j5gUk7EYAAKvydFw=="
-org= "iscte"
-bucket= "melbourne_hourly"
-bucket_forecasted = "melbourne_forecasted"
+# TODO deduplicate this function
+def parse_duration(duration):
+    n = int(duration[:-1])
+    u = duration[-1]
+    assert u in ["m", "h", "d", "w"]
+    if u == "m":
+        return timedelta(minutes=n)
+    elif u == "h":
+        return timedelta(hours=n)
+    elif u == "d":
+        return timedelta(days=n)
+    elif u == "w":
+        return timedelta(weeks=n)
 
-# TODO read from config file
-MIN_REAL_TIMESTAMPS = 48
-MAX_LOCAL_TO_OVERALL_GAP = timedelta(1)
-INTERVAL = timedelta(hours=1)
-MIN_STEPS = 48
-OUTPUT_TOTAL_TIMESTAMPS = 96
-N_SIMULATIONS = 1000 # simulations per forecast
+def load_parameters(parameters):
+    global url,token,org,bucket,metric_variable,location_variable
+    global MIN_REAL_TIMESTAMPS,MAX_LOCAL_TO_OVERALL_GAP,INTERVAL,MIN_STEPS,OUTPUT_TOTAL_TIMESTAMPS,N_SIMULATIONS
+    
+    url = parameters["url"]
+    token = parameters["token"]
+    org = parameters["org"]
+    bucket = parameters["bucket"]
+    metric_variable = parameters["metric_variable"] # TODO use this
+    location_variable = parameters["location_variable"]
 
-assert OUTPUT_TOTAL_TIMESTAMPS > MIN_STEPS
+    MIN_REAL_TIMESTAMPS = parameters["min_real_timestamps"]
+    MAX_LOCAL_TO_OVERALL_GAP = parse_duration(parameters["max_local_to_overall_gap"])
+    INTERVAL = parse_duration(parameters["interval"])
+    MIN_STEPS = parameters["min_steps"]
+    OUTPUT_TOTAL_TIMESTAMPS = parameters["output_total_timestamps"]
+    N_SIMULATIONS = parameters["n_simulations"]
+
+    assert OUTPUT_TOTAL_TIMESTAMPS > MIN_STEPS
 
 last_real_data = {}
 saved_predicted_values = {}
@@ -35,10 +52,10 @@ N = 24*7 # TODO parametrize
 def printerr(s):
     print(s, file=sys.stderr)
 
-def query_real_data():
+def query_real_data(): # TODO parametrize range start?
     query_str = f"""
-        from(bucket: "melbourne_hourly")
-            |> range(start: -30d)
+        from(bucket: "{bucket}")
+            |> range(start: -60d)
             |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
             |> sort(columns: ["_time"], desc: true)
             |> limit(n: {N})
@@ -55,7 +72,7 @@ def get_query_values(query_str):
             for record in table.records:
                 timestamp = record.values["_time"].isoformat().replace("+00:00", "Z")
                 timestamps.add(timestamp)
-                location = record.values["_measurement"]
+                location = record.values[location_variable]
                 value = record.values["_value"]
                 if location not in values:
                     values[location] = {}
@@ -86,7 +103,7 @@ def get_last_dt(values):
             max_dt = location_last_dt
     return max_dt
 
-def forecast_location(location, values, last_timestamps, steps):
+def forecast_location(location, values, last_timestamps, steps, model_parameters):
     printerr(f"forecasting location {location}")
 
     if len(values[location]) < MIN_REAL_TIMESTAMPS:
@@ -117,37 +134,7 @@ def forecast_location(location, values, last_timestamps, steps):
 
     total_steps_to_forecast = calc_steps_to_forecast(timestamps, last_timestamps, steps)
 
-    model = SARIMAX(xs,
-                    order=(1, 1, 1),
-                    seasonal_order=(1, 1, 1, 24), # IMPORTANT: last parameter is seasonality
-                    enforce_stationarity=False,
-                    enforce_invertibility=False)
-
-    model_fit = model.fit(disp=False)
-
-    # Generate simulated forecasts
-    simulated_forecasts = np.zeros((N_SIMULATIONS, total_steps_to_forecast))
-
-    for i in range(N_SIMULATIONS):
-        simulated_forecasts[i, :] = model_fit.simulate(total_steps_to_forecast, anchor='end', repetitions=1).reshape(-1)
-
-    # Calculate quartiles for each forecasted step
-    quartiles = np.percentile(simulated_forecasts, [0, 25, 50, 75, 100], axis=0)
-    q0 = quartiles[0, :]
-    q1 = quartiles[1, :]
-    q2 = quartiles[2, :]
-    q3 = quartiles[3, :]
-    q4 = quartiles[4, :]
-
-    res = []
-    for i in range(total_steps_to_forecast):
-        l = [q0[i], q1[i], q2[i], q3[i], q4[i]]
-        for j in range(len(l)):
-            if l[j] < 0:
-                l[j] = 0.0
-        res.append(l)
-    
-    # res now has {total_steps_to_forecast} predictions
+    res = forecast(xs, total_steps_to_forecast, N_SIMULATIONS, model_parameters)
     return res
 
 
@@ -175,10 +162,10 @@ def calc_result_timestamps(last_timestamps):
         res.append(timestamp)
     return res
 
-def train_and_forecast(real_values, last_timestamps):
+def train_and_forecast(real_values, last_timestamps, model_parameters):
     values = {}
     for location in real_values:
-        location_res = forecast_location(location, real_values, last_timestamps, MIN_STEPS)
+        location_res = forecast_location(location, real_values, last_timestamps, MIN_STEPS, model_parameters)
         if location_res:
             values[location] = location_res
     return values
@@ -208,7 +195,7 @@ def save_real_values(real_values):
     global last_real_data
     last_real_data = real_values
 
-def poll_and_push(new_data_handler):
+def poll_and_push(new_data_handler, model_parameters):
     printerr("Querying real values")
     values, last_timestamps = query_real_data()
     dirty_locations = check_dirty_locations(values)
@@ -229,7 +216,7 @@ def poll_and_push(new_data_handler):
             dirty_location_values[location] = values[location]
         values_for_training = dirty_location_values
         printerr(f"training {len(values)} locations")
-    new_values = train_and_forecast(values_for_training, last_timestamps)
+    new_values = train_and_forecast(values_for_training, last_timestamps, model_parameters)
     save_real_values(values)
     save_predicted_values(new_values)
     res = prepare_values(values, last_timestamps)
@@ -238,15 +225,18 @@ def poll_and_push(new_data_handler):
 
 SLEEP_SECONDS = 60*5 # TODO parametrize?
 
-def run_job(new_data_handler):
+def run_job(new_data_handler, model_parameters):
     while True:
-        poll_and_push(new_data_handler)
+        poll_and_push(new_data_handler, model_parameters)
         printerr("Sleeping")
         sleep(SLEEP_SECONDS)
 
-def run_job_on_new_thread(new_data_handler):
+def run_job_on_new_thread(new_data_handler, parameters, model_parameters, model_name):
+    global forecast
+    forecast = import_module(".models." + model_name, "backend.forecasting").forecast
+    load_parameters(parameters)
     _, last_timestamps = query_real_data()
-    t = Thread(target=run_job, args=[new_data_handler])
+    t = Thread(target=run_job, args=[new_data_handler, model_parameters])
     t.start()
     return last_timestamps[-1]
 
@@ -257,4 +247,4 @@ if __name__ == "__main__":
         with open(f"prediction_result_{prediction_result_counter}.json", "w") as f:
             json.dump(values, f)
         prediction_result_counter += 1
-    run_job(save_result)
+    run_job(save_result, {"seasonality": 24, "hidden_size": 24, "learning_rate": 0.02, "training_epochs": 100})
