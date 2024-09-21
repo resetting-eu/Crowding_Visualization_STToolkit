@@ -253,7 +253,9 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
 
   function getDataValue(o, quartile) {
     if(typeof o === "object") {
-      if(quartile === undefined) {
+      if(o === null) {
+        return 0;
+      } else if(quartile === undefined) {
         return o[quartiles.Q2];
       } else {
         return o[quartile];
