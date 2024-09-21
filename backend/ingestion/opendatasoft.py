@@ -48,7 +48,7 @@ def csv_str_to_points_and_push(csv_str, location_field, metric_field, timestamp_
     timestamp_field_i = header.index(timestamp_field)
     total_points = 0
     points = []
-    max_dt = datetime.fromisoformat(first_timestamp)
+    max_dt = first_timestamp
     for row in reader:
         dt = datetime.fromisoformat(row[timestamp_field_i])
         points.append(Point(row[location_field_i])
