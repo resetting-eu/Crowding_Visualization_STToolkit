@@ -44,7 +44,7 @@ import MapboxDrawStyles from './MapboxDrawStyles';
 
 import { booleanContains, point, center } from '@turf/turf';
 
-import { dayjs, dayjsSetLocaleAndTimezone, concatDataIndexes, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage, getRgbForPercentageSameHue } from './Utils';
+import { dayjs, dayjsSetLocaleAndTimezone, timestampBetween, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage, getRgbForPercentageSameHue } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
@@ -212,8 +212,7 @@ const statuses = {
   viewingHistory: {caption: "Viewing historical data"},
   loadingLive: {caption: "Loading live data...", loading: true},
   viewingLive: {caption: "Viewing live data"},
-  viewingLiveNotTracking: {caption: "Not automatically tracking latest moment"},
-  viewingLivePaused: {caption: "Live update paused (buffer limit reached)"},
+  viewingLivePaused: {caption: "Live update paused"},
   loadingPrediction: {caption: "Loading predictive data...", loading: true},
   viewingPrediction: {caption: "Viewing predictive data"},
   animating: {},
@@ -287,10 +286,15 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   const [loadSelectedSquaresOnly, setLoadSelectedSquaresOnly] = useState(false);
 
   const [selectedTimestamp, setSelectedTimestamp] = useState(0);
+  // the next two refs are used for live mode only
+  const selectedTimestampValue = useRef(null);
+  const selectedTimestampIsLast = useRef(true);
 
   function changeSelectedTimestamp(value) {
     if(rawData.values) {
       setSelectedTimestamp(value);
+      selectedTimestampValue.current = rawData.timestamps[value];
+      selectedTimestampIsLast.current = value === rawData.timestamps.length - 1;
       setValues(valuesToVisualize(rawData, value, measurement));  
     }
   }
@@ -314,20 +318,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     setStatus(s);
 
     if(currentStatusIs(statuses.viewingLive)) {
-      if(previousStatusIs(statuses.viewingLiveNotTracking)) {
-        if(rawData.timestamps) {
-          changeSelectedTimestamp(rawData.timestamps.length - 1);
-        }
-      } else if(previousStatusIs(statuses.viewingLivePaused)) {
-        loadLive();
-      } else {
-        setNextTimeout();
-      }
-    }
-    if(currentStatusIs(statuses.viewingLiveNotTracking)) {
-      if(previousStatusIs(statuses.animating)) {
-        setNextTimeout();
-      }
+      setNextTimeout();
     }
   }
 
@@ -387,6 +378,10 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       .then(data => {
         changeStatus(statuses.viewingLive);
         setRawData(data);
+        const timestampIndex = data.timestamps.length - 1;
+        setSelectedTimestamp(timestampIndex);
+        selectedTimestampValue.current = data.timestamps[timestampIndex];
+        selectedTimestampIsLast.current = true;
       });
   }
 
@@ -440,8 +435,6 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
     changeCumValues(measurement, hueMeasurement);
     if(rawData.client_id)
       client_id.current = rawData.client_id;
-    if(currentStatusIs(statuses.viewingLive))
-      changeSelectedTimestamp(rawData.timestamps.length - 1);
     else if(currentStatusIs(statuses.viewingHistory))
       changeSelectedTimestamp(0);
 
@@ -450,105 +443,35 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }, [rawData]);
 
   const setNextTimeout = () => {
-    if(currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.viewingLiveNotTracking))
-      setTimeout(loadLiveNewData, 2500);
+    if(currentStatusIs(statuses.viewingLive))
+      setTimeout(loadLiveNewData, 10 * 1000);
   }
 
-  const [newData, setNewData] = useState(null);
-
-  const loadLiveNewData = () => {
-    const url = backendUrl + "/live" + "?client_id=" + client_id.current;
+  function loadLiveNewData() {
+    const url = backendUrl + "/live";
     fetch(url, {credentials: "include"})
       .then(r => {gotoLoginIf401(r); return r.json()})
       .then(data => {
         if(!data.timestamps || data.timestamps.length === 0) {
           setNextTimeout();
         } else {
-          if(currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.viewingLiveNotTracking))
-            setNewData(data);
+          if(currentStatusIs(statuses.viewingLive)) {
+            if(data.timestamps.includes(selectedTimestampValue.current)) {
+              setRawData(data);
+              changeSelectedTimestamp(data.timestamps.indexOf(selectedTimestampValue.current));
+              setNextTimeout();
+            } else if(selectedTimestampIsLast.current && timestampBetween(selectedTimestampValue.current, data.timestamps[0], data.timestamps.at(-1))) {
+              setRawData(data);
+              changeSelectedTimestamp(data.timestamps.length - 1);
+              setNextTimeout();
+            } else {
+              changeStatus(statuses.viewingLivePaused);
+            }
+          }
         }
       });
   }
 
-  const MAX_LIVE_BUFFER_SIZE = 20;
-
-  function calcFirstNewTimestamp(oldTimestamps, newTimestamps) {
-    for(let i = 0; i < newTimestamps.length; ++i) {
-      if(!oldTimestamps.includes(newTimestamps[i])) {
-        return i;
-      }
-    }
-    return null;
-  }
-
-  function calcNewDataOnly(oldData, newData) {
-    const firstNewTimestamp = calcFirstNewTimestamp(oldData.timestamps, newData.timestamps);
-    if(firstNewTimestamp === 0)
-      return newData;
-    if(firstNewTimestamp === null)
-      return {timestamps: [], values: {}};
-    
-    const timestamps = newData.timestamps.slice(firstNewTimestamp);
-    
-    const measurements = {};
-    for(const measurement in newData.values) {
-      measurements[measurement] = [];
-      for(const loc in newData.values[measurement]) {
-        measurements[measurement].push(newData.values[measurement][loc].slice(firstNewTimestamp));
-      }
-    }
-
-    return {timestamps, measurements};
-  }
-
-  function concatData(oldData, newData) {
-    newData = calcNewDataOnly(oldData, newData);
-
-    // Do not exceed max buffer size. Discard older data if necessary
-    const old_length = oldData.timestamps.length;
-    const new_length = newData.timestamps.length;
-    if(old_length + new_length > MAX_LIVE_BUFFER_SIZE && currentStatusIs(statuses.viewingLiveNotTracking)) {
-      changeStatus(statuses.viewingLivePaused);
-      return;
-    }
-    const {first_old, first_new} = concatDataIndexes(old_length, new_length, MAX_LIVE_BUFFER_SIZE);
-
-    const concatData = {timestamps: [], values: {}};
-    for(let i = first_old; i < old_length; ++i) {
-      concatData.timestamps.push(oldData.timestamps[i]);
-    }
-    for(let i = first_new; i < new_length; ++i) {
-      concatData.timestamps.push(newData.timestamps[i]);
-    }
-    for(const measurement_name of Object.keys(oldData.values)) {
-      for(const loc in oldData.values[measurement_name]) {
-        const ms = [];
-        for(let j = first_old; j < old_length; ++j) {
-          ms.push(oldData.values[measurement_name][loc][j]);
-        }
-        for(let j = first_new; j < new_length; ++j) {
-          ms.push(newData.values[measurement_name][loc][j]);
-        }
-        if(!concatData.values[measurement_name]) {
-          concatData.values[measurement_name] = [];
-        }
-        concatData.values[measurement_name][loc] = ms;
-      }  
-    }
-    setRawData(concatData);
-    setNewData(null);
-    if(currentStatusIs(statuses.viewingLive)) {
-      changeSelectedTimestamp(concatData.timestamps.length - 1);
-    }
-    setNextTimeout();
-  }
-
-  useEffect(() => {
-    if(!newData)
-      return;
-
-    concatData(rawData, newData);
-  }, [newData]);
 
   function valuesToVisualize(data, selectedTimestamp, measurement) {
     const measurements = data.values[measurement.name];
@@ -623,8 +546,6 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
 
   function sliderChange(_, value) {
     changeSelectedTimestamp(value);
-    if(currentStatusIs(statuses.viewingLive) && value !== rawData.timestamps.length - 1)
-      changeStatus(statuses.viewingLiveNotTracking);
   }
 
   const [drawing, setDrawing] = useState(false);
@@ -746,10 +667,8 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
   }
 
   function liveButtonOnClick() {
-    if(currentStatusIs(statuses.viewingHistory) || currentStatusIs(statuses.noData)) {
+    if(currentStatusIs(statuses.viewingLivePaused)) {
       loadLive();
-    } else if(currentStatusIs(statuses.viewingLiveNotTracking) || currentStatusIs(statuses.viewingLivePaused)) {
-      changeStatus(statuses.viewingLive);
     }
   }
 
@@ -1160,7 +1079,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
       <div style={{position: "absolute", top: "0px", left: "60px", right: "0px", zIndex: 100, padding: "10px 25px 10px 25px", borderRadius: "25px", backgroundColor: "rgba(224, 224, 224, 1.0)"}}>
         <Stack direction="row" spacing={2}>
           <CustomSlider value={selectedTimestamp} valueLabelDisplay="auto" onChange={sliderChange} valueLabelFormat={i => rawData.timestamps ? formatTimestamp(rawData.timestamps[i]) : "No data loaded"}  colors={sliderColors} live={currentStatusIs(statuses.viewingLive)}/>
-          <Button variant="contained" onClick={liveButtonOnClick} disabled={!hasLive || currentStatusIs(statuses.viewingLive) || currentStatusIs(statuses.loadingLive)}>Live</Button>
+          <Button variant="contained" onClick={liveButtonOnClick} disabled={!hasLive || !currentStatusIs(statuses.viewingLivePaused)}>Live</Button>
         </Stack>
       </div>
       <div style={{position: "absolute", top: "0px", bottom: "0px", width: "100%"}}>

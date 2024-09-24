@@ -27,7 +27,7 @@ def query_last_str(bucket, start, locations, location_variable, filters):
     if locations:
         locations_regex = '|'.join(map(lambda l: "^" + str(l) + "$", locations))
         res += '|> filter(fn: (r) => r["' + location_variable + '"] =~ /' + locations_regex + '/)'
-    res += '|> last() |> group() |> keep(columns: ["_time"])'
+    res += '|> keep(columns: ["_time"]) |> sort(columns: ["_time"]) |> last(column: "_time")'
     return res
 
 def put_value(values, record, metric_variable, location_variable, index):

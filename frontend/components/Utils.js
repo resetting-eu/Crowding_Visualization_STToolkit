@@ -78,9 +78,10 @@ export function formatValue(floatNumber) {
 // pre: dayjsSetLocaleAndTimezone has been invoked before
 export function formatTimestamp(timestamp) {
   let dateObj = dayjsObj().utc(timestamp, "YYYY-MM-DDTHH:mm:ss");
-  if(timezone) {
-    dateObj = dateObj.tz(timezone);
-  }
+  // TODO uncomment
+  // if(timezone) {
+  //   dateObj = dateObj.tz(timezone);
+  // }
   return dateObj.format("L LT");
 }
 
@@ -185,4 +186,11 @@ export function getRgbForPercentageSameHue(highlight) {
   const l = 100;
 
   return hslToRgb(h / 360, l / 100, s / 100);  
+}
+
+export function timestampBetween(t, tmin, tmax) {
+  const dt = new Date(t);
+  const dtmin = new Date(tmin);
+  const dtmax = new Date(tmax);
+  return dt >= dtmin && dt <= dtmax;
 }
