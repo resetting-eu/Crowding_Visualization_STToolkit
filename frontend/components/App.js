@@ -44,7 +44,7 @@ import MapboxDrawStyles from './MapboxDrawStyles';
 
 import { booleanContains, point, center } from '@turf/turf';
 
-import { dayjs, dayjsSetLocaleAndTimezone, timestampBetween, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage, getRgbForPercentageSameHue } from './Utils';
+import { dayjs, dayjsSetLocaleAndTimezone, timestampBetween, nearestTimestampIndexAbove, formatTimestamp, maxFromArray, minFromArray, nextLocalMaxIndex, prevLocalMaxIndex, getRgbForPercentage, getRgbForPercentageSameHue } from './Utils';
 import Toolbar from './Toolbar';
 import StatusPane from './StatusPane';
 import CustomSlider from './CustomSlider';
@@ -462,7 +462,7 @@ function App({grid, parishesMapping, initialViewState, hasDensity, hasLive, meas
               setNextTimeout();
             } else if(selectedTimestampIsLast.current && timestampBetween(selectedTimestampValue.current, data.timestamps[0], data.timestamps.at(-1))) {
               setRawData(data);
-              changeSelectedTimestamp(data.timestamps.length - 1);
+              changeSelectedTimestamp(nearestTimestampIndexAbove(selectedTimestampValue.current, data.timestamps));
               setNextTimeout();
             } else {
               changeStatus(statuses.viewingLivePaused);

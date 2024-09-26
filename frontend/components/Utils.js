@@ -194,3 +194,13 @@ export function timestampBetween(t, tmin, tmax) {
   const dtmax = new Date(tmax);
   return dt >= dtmin && dt <= dtmax;
 }
+
+export function nearestTimestampIndexAbove(t, ts) {
+  const dt = new Date(t);
+
+  for(let i = 0; i < ts.length; ++i) {
+    if(new Date(ts[i]) > dt) {
+      return i;
+    }
+  }
+}
