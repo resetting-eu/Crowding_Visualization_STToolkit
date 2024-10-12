@@ -63,6 +63,7 @@ const defaultProps = {
   getElevation1: {type: 'accessor', value: 1000},
   getElevation2: {type: 'accessor', value: 1000},
   getVisualizeUncertainty: {type: 'accessor', value: false},
+  getPaintTopFace: {type: 'accessor', value: 0.0},
   material: true,
   getColor: {deprecatedFor: ['getFillColor1', 'getFillColor2', 'getLineColor']}
 };
@@ -106,25 +107,14 @@ export default class ColumnLayer extends Layer
         transition: true,
         accessor: 'getPosition'
       },
-      instanceElevations0: {
+      paintTopFace: {
         size: 1,
-        transition: true,
-        accessor: 'getQ0'
+        accessor: 'getPaintTopFace'
       },
-      instanceElevations1: {
-        size: 1,
+      instanceElevations0to3: {
+        size: 4,
         transition: true,
-        accessor: 'getQ1'
-      },
-      instanceElevations2: {
-        size: 1,
-        transition: true,
-        accessor: 'getQ2'
-      },
-      instanceElevations3: {
-        size: 1,
-        transition: true,
-        accessor: 'getQ3'
+        accessor: 'getQ0toQ3'
       },
       instanceElevations4: {
         size: 1,

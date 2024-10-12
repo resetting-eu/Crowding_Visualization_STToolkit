@@ -26,10 +26,11 @@ in vec3 positions;
 in vec3 normals;
 
 in vec3 instancePositions;
-in float instanceElevations0;
-in float instanceElevations1;
-in float instanceElevations2;
-in float instanceElevations3;
+in vec4 instanceElevations0to3;
+//in float instanceElevations0;
+//in float instanceElevations1;
+//in float instanceElevations2;
+//in float instanceElevations3;
 in float instanceElevations4;
 in vec3 instancePositions64Low;
 in vec4 instanceFillColors1;
@@ -40,6 +41,7 @@ in float instanceStrokeWidths;
 in float visualizeUncertainty;
 
 in vec3 instancePickingColors;
+in float paintTopFace;
 
 // Custom uniforms
 uniform float opacity;
@@ -79,6 +81,11 @@ void main(void) {
   float elevation = 0.0;
   // calculate stroke offset
   float strokeOffsetRatio = 1.0;
+
+  float instanceElevations0 = instanceElevations0to3.x;
+  float instanceElevations1 = instanceElevations0to3.y;
+  float instanceElevations2 = instanceElevations0to3.z;
+  float instanceElevations3 = instanceElevations0to3.w;
 
   if (extruded) {
     if(visualizeUncertainty == 1.0) {
@@ -165,6 +172,9 @@ void main(void) {
 #endif
   } else {
     vColor = vec4(color.rgb, color.a * opacity);
+  }
+  if(paintTopFace == 1.0 && normals.z == 1.0 && ((visualizeUncertainty == 1.0 && nColumn == 3) || visualizeUncertainty == 0.0)) { // && instanceElevations > 1.0 ?
+    vColor = vec4(1.0, 0.0, 0.0, 1.0);
   }
   DECKGL_FILTER_COLOR(vColor, geometry);
 }
