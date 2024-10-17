@@ -36,6 +36,28 @@ prediction:
   output_total_timestamps: 96
   n_simulations: 50
 
+# uncomment to evaluate models on backend start
+# prediction_evaluation:
+#   url: <INFLUXDB_URL>
+#   token: <INFLUXDB_TOKEN>
+#   org: <INFLUXDB_ORG>
+#   bucket: <INFLUXDB_BUCKET>
+#   metric_variable: _field # if omitted, assumes there is only one metric
+#   location_variable: _measurement
+#   model_names:
+#     - LSTM
+#     - SARIMA
+#   model_parameters:
+#     hidden_size: 24
+#     learning_rate: 0.02
+#     training_epochs: 100
+#     seasonality: 24
+#   min_real_timestamps: 48
+#   max_local_to_overall_gap: 1d
+#   interval: 1h
+#   min_steps: 48
+#   n_simulations: 50
+
 metadata:
   locations:
     filepath: <LOCATIONS_FILEPATH>

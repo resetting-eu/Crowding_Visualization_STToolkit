@@ -38,6 +38,7 @@ if LOCAL_ENV:
     from .connectors import influxdb_live as live
     from .connectors import influxdb_history as history
     from .connectors import prediction as prediction
+    from .connectors import prediction_evaluation as prediction_evaluation
     from .connectors import static as static
 
 else:
@@ -50,6 +51,7 @@ else:
     import connectors.influxdb_live as live
     import connectors.influxdb_history as history
     import connectors.prediction as prediction
+    import connectors.prediction_evaluation as prediction_evaluation
     import connectors.static as static
 
 
@@ -376,11 +378,11 @@ def configure_handler(module, name, parameters):
     handler.__name__ = handler.__name__ + "_" + name # flask requires handler functions to have unique names
     app.add_url_rule('/' + name, view_func=handler)
 
-modules = {"live": live, "history": history, "prediction": prediction}
+modules = {"live": live, "history": history, "prediction": prediction, "prediction_evaluation": prediction_evaluation}
 
 # instantiate endpoints as defined in configuration file
 for name in cfg:
-    assert name in ("history", "live", "metadata", "prediction") # TODO verificar que metadata existe e pelo menos um de (history,locations) existe e que não há repetições
+    assert name in ("history", "live", "metadata", "prediction", "prediction_evaluation") # TODO verificar que metadata existe e pelo menos um de (history,locations) existe e que não há repetições
     if name == "metadata":
         configure_metadata_handler()
     elif name == "history" and "path" in cfg[name]: # allow serving static content
