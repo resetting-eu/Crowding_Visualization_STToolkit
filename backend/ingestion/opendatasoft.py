@@ -32,6 +32,7 @@ def load_historical(parameters, write_points):
     def ingest_from(start_timestamp, end_timestamp):
         url = csv_url(url_prefix, dataset, timestamp_field, start_timestamp, end_timestamp)
         try:
+            start_timestamp = datetime.fromisoformat(start_timestamp)
             csv_str = urlopen(url).read().decode("utf-8")
             max_dt = csv_str_to_points_and_push(csv_str, location_field, metric_field, timestamp_field, start_timestamp, write_points)
             return max_dt
